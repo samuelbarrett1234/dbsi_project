@@ -29,7 +29,7 @@ namespace joins
 * variables into the rest of the expressions, then an iterator
 * for patterns[1] will be created, etc...
 */
-std::unique_ptr<IVarMapIterator> create_nested_loop_join_iterator(
+std::unique_ptr<ICodedVarMapIterator> create_nested_loop_join_iterator(
 	const RDFIndex& rdf_idx,
 	std::vector<CodedTriplePattern> patterns
 );

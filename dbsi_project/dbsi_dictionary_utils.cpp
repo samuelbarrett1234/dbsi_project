@@ -87,6 +87,32 @@ TriplePattern decode(const Dictionary& dict, const CodedTriplePattern& t)
 }
 
 
+CodedVarMap encode(Dictionary& dict, const VarMap& vm)
+{
+	// todo: optimise this (which can be done because we know that
+	// the keys of `vm` are in sorted order)
+	CodedVarMap cvm;
+
+	for (const auto& pair : vm)
+		cvm[pair.first] = dict.encode(pair.second);
+
+	return cvm;
+}
+
+
+VarMap decode(const Dictionary& dict, const CodedVarMap& cvm)
+{
+	// todo: optimise this (which can be done because we know that
+	// the keys of `vm` are in sorted order)
+	VarMap vm;
+
+	for (const auto& pair : cvm)
+		vm[pair.first] = dict.decode(pair.second);
+
+	return vm;
+}
+
+
 std::unique_ptr<ICodedTripleIterator> autoencode(
 	Dictionary& dict, std::unique_ptr<ITripleIterator> iter)
 {
@@ -172,6 +198,94 @@ std::unique_ptr<ITripleIterator> autodecode(
 	};
 
 	return std::make_unique<AutodecodingTripleIterator>(dict, std::move(iter));
+}
+
+
+std::unique_ptr<ICodedVarMapIterator> autoencode(
+	Dictionary& dict, std::unique_ptr<IVarMapIterator> iter)
+{
+	DBSI_CHECK_PRECOND(iter != nullptr);
+
+	// simple wrapper around the given iterator which calls `encode` in `current`
+	class AutoencodingVarMapIterator :
+		public ICodedVarMapIterator
+	{
+	public:
+		AutoencodingVarMapIterator(
+			Dictionary& dict, std::unique_ptr<IVarMapIterator> iter) :
+			m_dict(dict), m_iter(std::move(iter))
+		{ }
+
+		void start() override
+		{
+			m_iter->start();
+		}
+
+		CodedVarMap current() const override
+		{
+			return encode(m_dict, m_iter->current());
+		}
+
+		void next() override
+		{
+			m_iter->next();
+		}
+
+		bool valid() const override
+		{
+			return m_iter->valid();
+		}
+
+	private:
+		Dictionary& m_dict;
+		std::unique_ptr<IVarMapIterator> m_iter;
+	};
+
+	return std::make_unique<AutoencodingVarMapIterator>(dict, std::move(iter));
+}
+
+
+std::unique_ptr<IVarMapIterator> autodecode(
+	const Dictionary& dict, std::unique_ptr<ICodedVarMapIterator> iter)
+{
+	DBSI_CHECK_PRECOND(iter != nullptr);
+
+	// simple wrapper around the given iterator which calls `decode` in `current`
+	class AutodecodingVarMapIterator :
+		public IVarMapIterator
+	{
+	public:
+		AutodecodingVarMapIterator(
+			const Dictionary& dict, std::unique_ptr<ICodedVarMapIterator> iter) :
+			m_dict(dict), m_iter(std::move(iter))
+		{ }
+
+		void start() override
+		{
+			m_iter->start();
+		}
+
+		VarMap current() const override
+		{
+			return decode(m_dict, m_iter->current());
+		}
+
+		void next() override
+		{
+			m_iter->next();
+		}
+
+		bool valid() const override
+		{
+			return m_iter->valid();
+		}
+
+	private:
+		const Dictionary& m_dict;
+		std::unique_ptr<ICodedVarMapIterator> m_iter;
+	};
+
+	return std::make_unique<AutodecodingVarMapIterator>(dict, std::move(iter));
 }
 
 

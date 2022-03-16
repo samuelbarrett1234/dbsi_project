@@ -6,6 +6,7 @@
 #include "dbsi_turtle.h"
 #include "dbsi_query.h"
 #include "dbsi_dictionary_utils.h"
+#include "dbsi_nlj.h"
 
 
 using namespace dbsi;
@@ -26,18 +27,27 @@ void load(Dictionary& dict, RDFIndex& idx, std::string filename)
 		idx.add(file_iter->current());
 		file_iter->next();
 	}
-
-	// TODO: insert `file_iter` into `idx`
 }
 
 
 void select_test(Dictionary& dict, RDFIndex& idx)
 {
-	CodedTriplePattern pat{
-		Variable{"x"}, dict.encode(IRI{"<http://swat.cse.lehigh.edu/onto/univ-bench.owl#member>"}), Variable{"y"}
-	};
+	// test query 1, built manually
+	std::vector<CodedTriplePattern> pats;
+	pats.push_back({
+		Variable{"x"},
+		dict.encode(IRI{"<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>"}),
+		dict.encode(IRI{"<http://swat.cse.lehigh.edu/onto/univ-bench.owl#GraduateStudent>"})
+		});
+	pats.push_back({
+		Variable{"x"},
+		dict.encode(IRI{"<http://swat.cse.lehigh.edu/onto/univ-bench.owl#takesCourse>"}),
+		dict.encode(IRI{"<http://www.Department0.University0.edu/GraduateCourse0>"})
+		});
+
+	// count results, manually
 	size_t count = 0;
-	auto iter = autodecode(dict, idx.evaluate(pat));
+	auto iter = autodecode(dict, joins::create_nested_loop_join_iterator(idx, std::move(pats)));
 	iter->start();
 	while (iter->valid())
 	{

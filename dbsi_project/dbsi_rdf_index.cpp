@@ -13,14 +13,14 @@ void RDFIndex::add(CodedTriple t)
 }
 
 
-std::unique_ptr<ICodedTripleIterator> RDFIndex::evaluate(
+std::unique_ptr<ICodedVarMapIterator> RDFIndex::evaluate(
 	CodedTriplePattern pattern, std::optional<TripleOrder> request_output_order) const
 {
-	class NaiveCodedTripleIterator :
-		public ICodedTripleIterator
+	class NaiveCodedVarMapIterator :
+		public ICodedVarMapIterator
 	{
 	public:
-		NaiveCodedTripleIterator(const std::vector<CodedTriple>& triples, CodedTriplePattern pat) :
+		NaiveCodedVarMapIterator(const std::vector<CodedTriple>& triples, CodedTriplePattern pat) :
 			m_triples(triples), m_index(triples.size()), m_pat(pat)
 		{ }
 
@@ -28,14 +28,20 @@ std::unique_ptr<ICodedTripleIterator> RDFIndex::evaluate(
 		{
 			m_index = 0;
 
-			while (valid() && !pattern_matches(m_pat, current()))
+			while (valid() && !pattern_matches(m_pat, m_triples[m_index]))
 				++m_index;
 		}
 
-		CodedTriple current() const override
+		CodedVarMap current() const override
 		{
 			DBSI_CHECK_PRECOND(valid());
-			return m_triples[m_index];
+
+			auto result = bind(m_pat, m_triples[m_index]);
+
+			// if this fails then the `pattern_matches` function is faulty
+			DBSI_CHECK_POSTCOND(result.has_value());
+
+			return *result;
 		}
 
 		void next() override
@@ -44,7 +50,7 @@ std::unique_ptr<ICodedTripleIterator> RDFIndex::evaluate(
 
 			++m_index;
 
-			while (valid() && !pattern_matches(m_pat, current()))
+			while (valid() && !pattern_matches(m_pat, m_triples[m_index]))
 				++m_index;
 		}
 
@@ -59,7 +65,7 @@ std::unique_ptr<ICodedTripleIterator> RDFIndex::evaluate(
 		size_t m_index;
 	};
 
-	return std::make_unique<NaiveCodedTripleIterator>(m_triples, pattern);
+	return std::make_unique<NaiveCodedVarMapIterator>(m_triples, pattern);
 }
 
 

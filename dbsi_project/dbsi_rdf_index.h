@@ -39,7 +39,7 @@ public:
 	* You can check the sortedness of the triple
 	* iterator once it has been created.
 	*/
-	std::unique_ptr<ICodedTripleIterator> evaluate(CodedTriplePattern pattern,
+	std::unique_ptr<ICodedVarMapIterator> evaluate(CodedTriplePattern pattern,
 		std::optional<TripleOrder> request_output_order = std::nullopt) const;
 
 private:

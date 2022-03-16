@@ -36,21 +36,10 @@ public:
 };
 
 
-/*
-* These iterators usually, but do not necessarily, guarantee an order to their
-* output. This can be queried with `order`.
-*/
-class IOrderedTripleIterator
-{
-public:
-	virtual ~IOrderedTripleIterator() = default;
-	virtual std::optional<TripleOrder> order() const = 0;
-};
-
-
-typedef IIterator<VarMap> IVarMapIterator;
 typedef IIterator<Triple> ITripleIterator;
 typedef IIterator<CodedTriple> ICodedTripleIterator;
+typedef IIterator<VarMap> IVarMapIterator;
+typedef IIterator<CodedVarMap> ICodedVarMapIterator;
 
 
 }  // namespace dbsi

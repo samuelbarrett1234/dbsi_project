@@ -13,62 +13,77 @@ namespace dbsi
 
 struct Literal
 {
-	inline bool operator == (const Literal& other) const
-	{
-		return val == other.val;
-	}
 	std::string val;
+
+	inline bool operator == (const Literal& other) const { return val == other.val; }
+	inline bool operator != (const Literal& other) const { return val != other.val; }
+	inline bool operator < (const Literal& other) const { return val < other.val; }
+	inline bool operator <= (const Literal& other) const { return val <= other.val; }
+	inline bool operator > (const Literal& other) const { return val > other.val; }
+	inline bool operator >= (const Literal& other) const { return val >= other.val; }
 };
 
 
 struct IRI
 {
-	inline bool operator == (const IRI& other) const
-	{
-		return val == other.val;
-	}
 	std::string val;
+
+	inline bool operator == (const IRI& other) const { return val == other.val; }
+	inline bool operator != (const IRI& other) const { return val != other.val; }
+	inline bool operator < (const IRI& other) const { return val < other.val; }
+	inline bool operator <= (const IRI& other) const { return val <= other.val; }
+	inline bool operator > (const IRI& other) const { return val > other.val; }
+	inline bool operator >= (const IRI& other) const { return val >= other.val; }
 };
 
 
 struct Variable
 {
-	inline bool operator == (const Variable& other) const
-	{
-		return name == other.name;
-	}
 	std::string name;
+
+	inline bool operator == (const Variable& other) const { return name == other.name; }
+	inline bool operator != (const Variable& other) const { return name != other.name; }
+	inline bool operator < (const Variable& other) const { return name < other.name; }
+	inline bool operator <= (const Variable& other) const { return name <= other.name; }
+	inline bool operator > (const Variable& other) const { return name > other.name; }
+	inline bool operator >= (const Variable& other) const { return name >= other.name; }
 };
+
 
 typedef std::variant<Literal, IRI> Resource;
 typedef size_t CodedResource;
-typedef std::variant<Variable, Resource> Term;
-typedef std::variant<Variable, CodedResource> CodedTerm;
-typedef std::map<Variable, Resource> VarMap;
 
 
-struct Triple
+template<typename ResT>
+using GeneralTerm = std::variant<Variable, ResT>;
+template<typename ResT>
+using GeneralVarMap = std::map<Variable, ResT>;
+
+
+typedef GeneralTerm<Resource> Term;
+typedef GeneralTerm<CodedResource> CodedTerm;
+typedef GeneralVarMap<Resource> VarMap;
+typedef GeneralVarMap<CodedResource> CodedVarMap;
+
+
+template<typename ResT>
+struct GeneralTriple
 {
-	Resource sub, pred, obj;
+	ResT sub, pred, obj;
 };
 
 
-struct TriplePattern
+template<typename ResT>
+struct GeneralTriplePattern
 {
-	Term sub, pred, obj;
+	GeneralTerm<ResT> sub, pred, obj;
 };
 
 
-struct CodedTriple
-{
-	CodedResource sub, pred, obj;
-};
-
-
-struct CodedTriplePattern
-{
-	CodedTerm sub, pred, obj;
-};
+typedef GeneralTriple<Resource> Triple;
+typedef GeneralTriple<CodedResource> CodedTriple;
+typedef GeneralTriplePattern<Resource> TriplePattern;
+typedef GeneralTriplePattern<CodedResource> CodedTriplePattern;
 
 
 enum class TripleOrder
