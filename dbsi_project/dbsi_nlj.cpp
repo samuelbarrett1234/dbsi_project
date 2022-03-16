@@ -110,7 +110,7 @@ private:
 };
 
 
-std::unique_ptr<ICodedVarMapIterator> joins::create_nested_loop_join_iterator(
+std::unique_ptr<ICodedVarMapIterator> create_nested_loop_join_iterator(
 	const RDFIndex& rdf_idx, std::vector<CodedTriplePattern> patterns)
 {
 	return std::make_unique<NestedLoopJoinIterator>(rdf_idx, std::move(patterns));
