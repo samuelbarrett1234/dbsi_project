@@ -2,16 +2,14 @@
 #define DBSI_RDF_INDEX_H
 
 
-#include "dbsi_types.h"
 #include <memory>
 #include <optional>
+#include "dbsi_types.h"
+#include "dbsi_iterator.h"
 
 
 namespace dbsi
 {
-
-
-class ICodedTripleIterator;  // forward declaration
 
 
 /*

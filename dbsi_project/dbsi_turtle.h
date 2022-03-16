@@ -4,13 +4,11 @@
 
 #include <memory>
 #include <istream>
+#include "dbsi_iterator.h"
 
 
 namespace dbsi
 {
-
-
-class ITripleIterator;  // forward declaration
 
 
 /*

@@ -4,6 +4,7 @@
 
 #include <memory>
 #include "dbsi_types.h"
+#include "dbsi_iterator.h"
 
 
 namespace dbsi
@@ -11,8 +12,6 @@ namespace dbsi
 
 
 class Dictionary;  // forward declaration
-class ITripleIterator;  // forward declaration
-class ICodedTripleIterator;  // forward declaration
 
 
 CodedTerm encode(Dictionary& dict, const Term& t);

@@ -5,13 +5,13 @@
 #include <vector>
 #include <memory>
 #include "dbsi_types.h"
+#include "dbsi_iterator.h"
 
 
 namespace dbsi
 {
 
 
-class IVarMapIterator;  // forward declaration
 class RDFIndex;  // forward declaration
 
 
