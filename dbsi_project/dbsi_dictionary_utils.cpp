@@ -104,7 +104,7 @@ std::unique_ptr<ICodedTripleIterator> autoencode(
 
 		void start() override
 		{
-			m_iter->current();
+			m_iter->start();
 		}
 
 		CodedTriple current() const override

@@ -16,6 +16,9 @@ namespace dbsi
 * These iterators are initialised to be invalid.
 * You can call `current` and `next` if and only if the iterator is `valid`.
 * `start` can be called at any time to validate the iterator and restart it.
+* However, if the iterator is iterating over an empty list, calling `start`
+* will not validate the iterator, in which case you can conclude that the
+* list is empty.
 * Calling `next` will result in invalidating the iterator once the end is reached.
 * These iterators may apply selection conditions, for example only returning
 * triples in the database with a given predicate.
@@ -26,7 +29,7 @@ class IIterator
 public:
 	virtual ~IIterator() = default;
 
-	virtual void start() = 0;  // post: `valid()`, and points to first tuple
+	virtual void start() = 0;  // post: `valid()` iff nonempty, and points to first tuple
 	virtual T current() const = 0;  // pre: `valid()`
 	virtual void next() = 0;  // pre: `valid()`
 	virtual bool valid() const = 0;
