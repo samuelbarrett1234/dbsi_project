@@ -148,7 +148,7 @@ std::unique_ptr<ITripleIterator> autodecode(
 
 		void start() override
 		{
-			m_iter->current();
+			m_iter->start();
 		}
 
 		Triple current() const override

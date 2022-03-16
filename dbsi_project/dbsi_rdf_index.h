@@ -3,6 +3,7 @@
 
 
 #include <memory>
+#include <vector>
 #include <optional>
 #include "dbsi_types.h"
 #include "dbsi_iterator.h"
@@ -39,7 +40,10 @@ public:
 	* iterator once it has been created.
 	*/
 	std::unique_ptr<ICodedTripleIterator> evaluate(CodedTriplePattern pattern,
-		std::optional<TriplePattern> request_output_order = std::nullopt) const;
+		std::optional<TripleOrder> request_output_order = std::nullopt) const;
+
+private:
+	std::vector<CodedTriple> m_triples;
 };
 
 
