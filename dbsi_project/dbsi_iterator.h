@@ -17,6 +17,8 @@ namespace dbsi
 * You can call `current` and `next` if and only if the iterator is `valid`.
 * `start` can be called at any time to validate the iterator and restart it.
 * Calling `next` will result in invalidating the iterator once the end is reached.
+* These iterators may apply selection conditions, for example only returning
+* triples in the database with a given predicate.
 */
 template<typename T>
 class IIterator
@@ -32,22 +34,20 @@ public:
 
 
 /*
-* These iterators may apply selection conditions, for example only returning
-* triples in the database with a given predicate.
 * These iterators usually, but do not necessarily, guarantee an order to their
 * output. This can be queried with `order`.
 */
-class ICodedTripleIterator :
-	public IIterator<CodedTriple>
+class IOrderedTripleIterator
 {
 public:
-	virtual ~ICodedTripleIterator() = default;
+	virtual ~IOrderedTripleIterator() = default;
 	virtual std::optional<TripleOrder> order() const = 0;
 };
 
 
 typedef IIterator<VarMap> IVarMapIterator;
 typedef IIterator<Triple> ITripleIterator;
+typedef IIterator<CodedTriple> ICodedTripleIterator;
 
 
 }  // namespace dbsi

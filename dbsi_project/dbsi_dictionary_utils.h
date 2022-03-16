@@ -22,10 +22,16 @@ CodedTriplePattern encode(Dictionary& dict, const TriplePattern& t);
 TriplePattern decode(const Dictionary& dict, const CodedTriplePattern& t);
 
 
+/*
+* Wrap an iterator with another iterator which automatically
+* encodes its outputs. Subsumes management of the given input
+* iterator. Warning: `dict` must remain alive for the entire
+* duration of the returned iterator's lifetime.
+*/
 std::unique_ptr<ICodedTripleIterator> autoencode(
 	Dictionary& dict, std::unique_ptr<ITripleIterator> iter);
 std::unique_ptr<ITripleIterator> autodecode(
-	Dictionary& dict, std::unique_ptr<ICodedTripleIterator> iter);
+	const Dictionary& dict, std::unique_ptr<ICodedTripleIterator> iter);
 
 
 }  // namespace dbsi

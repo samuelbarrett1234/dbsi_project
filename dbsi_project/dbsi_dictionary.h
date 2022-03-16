@@ -2,6 +2,9 @@
 #define DBSI_DICTIONARY_H
 
 
+#include <vector>
+#include <string>
+#include <unordered_map>
 #include "dbsi_types.h"
 
 
@@ -20,6 +23,18 @@ class Dictionary
 public:
 	CodedResource encode(const Resource& r);
 	Resource decode(CodedResource i) const;
+
+private:
+	std::unordered_map<Resource, CodedResource> m_encoder;
+
+	/*
+	* Store pointers here rather than the `Resource`, to prevent
+	* duplication of memory by a factor of 2.
+	* (note that `std::unordered_map` guarantees that elements'
+	* pointers are never invalidated, even though their iterators
+	* may be)
+	*/
+	std::vector<const Resource*> m_decoder;
 };
 
 
