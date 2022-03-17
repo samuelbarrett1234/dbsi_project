@@ -104,6 +104,32 @@ enum class TripleOrder
 };
 
 
+// works on Resources or Terms, via calling or via std::visit
+struct DbsiToStringVisitor
+{
+	std::string operator()(const Literal& l)
+	{
+		return l.val;
+	}
+	std::string operator()(const IRI& l)
+	{
+		return l.val;
+	}
+	std::string operator()(const Resource& r)
+	{
+		return std::visit(*this, r);
+	}
+	std::string operator()(const Variable& v)
+	{
+		return v.name;
+	}
+	std::string operator()(const Term& t)
+	{
+		return std::visit(*this, t);
+	}
+};
+
+
 }  // namespace dbsi
 
 

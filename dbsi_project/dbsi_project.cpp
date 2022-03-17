@@ -1,89 +1,165 @@
 ﻿#include <iostream>
 #include <fstream>
 #include <chrono>
+#include <algorithm>
 #include "dbsi_dictionary.h"
 #include "dbsi_rdf_index.h"
 #include "dbsi_turtle.h"
 #include "dbsi_query.h"
 #include "dbsi_dictionary_utils.h"
 #include "dbsi_nlj.h"
-#include "dbsi_rdf_index_helper.h"
 
 
 using namespace dbsi;
 
 
-void load(Dictionary& dict, RDFIndex& idx, std::string filename)
+/*
+* This class contains the main database data structures
+* such as the index, but also acts as a visitor to the
+* std::variant returned by `parse_query`, leading to an
+* elegant loop in the `main` function below.
+*/
+class QueryApplication
 {
-	std::ifstream file(filename, std::ios::binary);
-	// TODO: does the file exist?
+public:
+	QueryApplication() :
+		m_done(false)
+	{ }
 
-	// TODO: what does the file parser do if the file is corrupted?
-
-	auto file_iter = autoencode(dict, create_turtle_file_parser(file));
-
-	file_iter->start();
-	while (file_iter->valid())
+	void operator()(const BadQuery&)
 	{
-		idx.add(file_iter->current());
-		file_iter->next();
+		std::cerr << "Bad, or no, query." << std::endl;
 	}
-}
 
-
-void select_test(Dictionary& dict, RDFIndex& idx)
-{
-	// test query 1, built manually
-	std::vector<CodedTriplePattern> pats;
-	pats.push_back({
-		Variable{"x"},
-		dict.encode(IRI{"<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>"}),
-		dict.encode(IRI{"<http://swat.cse.lehigh.edu/onto/univ-bench.owl#GraduateStudent>"})
-		});
-	pats.push_back({
-		Variable{"x"},
-		dict.encode(IRI{"<http://swat.cse.lehigh.edu/onto/univ-bench.owl#takesCourse>"}),
-		dict.encode(IRI{"<http://www.Department0.University0.edu/GraduateCourse0>"})
-		});
-
-	// count results, manually
-	size_t count = 0;
-	auto iter = autodecode(dict, joins::create_nested_loop_join_iterator(idx, std::move(pats)));
-	iter->start();
-	while (iter->valid())
+	void operator()(const QuitQuery&)
 	{
-		++count;
-		iter->next();
+		std::cout << "Exiting..." << std::endl;
+		m_done = true;
 	}
-	std::cout << "Total count: " << count << std::endl;
-}
+
+	void operator()(const LoadQuery& q)
+	{
+		const auto start_time = std::chrono::system_clock::now();
+
+		std::ifstream file(q.filename, std::ios::binary);
+
+		if (!file)
+		{
+			std::cerr << "Unfortunately the given file '"
+				<< q.filename << "' cannot be opened." << std::endl;
+			return;
+		}
+
+		// TODO: what does the file parser do if the file is corrupted?
+
+		auto file_iter = autoencode(m_dict, create_turtle_file_parser(file));
+
+		size_t add_count = 0;
+		file_iter->start();
+		while (file_iter->valid())
+		{
+			m_idx.add(file_iter->current());
+			file_iter->next();
+			++add_count;
+		}
+
+		const auto end_time = std::chrono::system_clock::now();
+
+		std::cout << "Loaded " << add_count << " triples in " <<
+			std::chrono::duration_cast<std::chrono::milliseconds>(start_time - end_time).count()
+			<< "ms." << std::endl;
+	}
+
+	void operator()(const CountQuery& q)
+	{
+		const auto start_time = std::chrono::system_clock::now();
+		auto iter = evaluate_patterns(q.match);
+
+		iter->start();
+		size_t count = 0;
+		while (iter->valid())
+		{
+			++count;
+			iter->next();
+		}
+
+		const auto end_time = std::chrono::system_clock::now();
+
+		std::cout << "Total count: " << count << ", obtained in " <<
+			std::chrono::duration_cast<std::chrono::milliseconds>(start_time - end_time).count()
+			<< "ms." << std::endl;
+	}
+
+	void operator()(const SelectQuery& q)
+	{
+		const auto start_time = std::chrono::system_clock::now();
+		auto iter = evaluate_patterns(q.match);
+
+		// header
+		std::cout << "----------" << std::endl;
+		for (const auto& v : q.projection)
+			std::cout << v.name << '\t';
+		std::cout << std::endl;
+
+		size_t count = 0;
+		iter->start();
+		while (iter->valid())
+		{
+			// get current map
+			const auto vm = iter->current();
+
+			// print columns
+			for (size_t i = 0; i < q.projection.size(); ++i)
+			{
+				std::cout << std::visit(DbsiToStringVisitor(),
+					vm.at(q.projection[i])) << '\t';
+			}
+			std::cout << std::endl;
+
+			iter->next();
+			++count;
+		}
+		std::cout << "----------" << std::endl;
+
+		const auto end_time = std::chrono::system_clock::now();
+
+		std::cout << count << " results obtained in " <<
+			std::chrono::duration_cast<std::chrono::milliseconds>(start_time - end_time).count()
+			<< "ms." << std::endl;
+	}
+
+	bool done() const
+	{
+		return m_done;
+	}
+
+private:
+	std::unique_ptr<IVarMapIterator> evaluate_patterns(std::vector<TriplePattern> pats)
+	{
+		// first need to encode the patterns
+		std::vector<CodedTriplePattern> coded_pats;
+		std::transform(pats.begin(), pats.end(), std::back_inserter(coded_pats),
+			[this](const TriplePattern& pat) { return encode(m_dict, pat); });
+
+		return autodecode(m_dict,
+			joins::create_nested_loop_join_iterator(m_idx, std::move(coded_pats)));
+	}
+
+private:
+	bool m_done;
+	Dictionary m_dict;
+	RDFIndex m_idx;
+};
 
 
 int main()
 {
-	Dictionary dict;
-	RDFIndex idx;
+	QueryApplication app;
 
-	std::cout << "Loading..." << std::endl;
-	auto start = std::chrono::system_clock::now();
-
-	load(dict, idx, "E:/dbsi/LUBM-001-mat.ttl");
-
-	auto between = std::chrono::system_clock::now();
-
-	std::cout << "Done. Time: " <<
-		std::chrono::duration_cast<std::chrono::milliseconds>(between - start).count()
-		<< "ms. Starting query..." << std::endl;
-
-	select_test(dict, idx);
-
-	auto done = std::chrono::system_clock::now();
-
-	std::cout << "Done. Time: " <<
-		std::chrono::duration_cast<std::chrono::milliseconds>(done - between).count()
-		<< "ms." << std::endl;
-
-	std::cin.get();
+	while (!app.done())
+	{
+		std::visit(app, parse_query(std::cin));
+	}
 
 	return 0;
 }
