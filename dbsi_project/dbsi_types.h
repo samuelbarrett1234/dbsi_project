@@ -70,6 +70,12 @@ template<typename ResT>
 struct GeneralTriple
 {
 	ResT sub, pred, obj;
+
+	inline bool operator == (const GeneralTriple<ResT>& other) const
+	{
+		return sub == other.sub && pred == other.pred && obj == other.obj;
+	}
+	inline bool operator != (const Literal& other) const { return !(*this == other); }
 };
 
 
@@ -77,6 +83,12 @@ template<typename ResT>
 struct GeneralTriplePattern
 {
 	GeneralTerm<ResT> sub, pred, obj;
+
+	inline bool operator == (const GeneralTriple<ResT>& other) const
+	{
+		return sub == other.sub && pred == other.pred && obj == other.obj;
+	}
+	inline bool operator != (const Literal& other) const { return !(*this == other); }
 };
 
 
@@ -132,6 +144,40 @@ struct hash<dbsi::Variable>
 	}
 };
 
+
+template <typename ResT>
+struct hash<dbsi::GeneralTriple<ResT>>
+{
+	std::size_t operator()(const dbsi::GeneralTriple<ResT>& t) const
+	{
+		return std::hash<ResT>()(t.sub)
+			+ 7 * std::hash<ResT>()(t.pred)
+			+ 11 * std::hash<ResT>()(t.obj);
+	}
+};
+
+
+template <typename ResT>
+struct hash<dbsi::GeneralTriplePattern<ResT>>
+{
+	std::size_t operator()(const dbsi::GeneralTriplePattern<ResT>& t) const
+	{
+		return std::hash<ResT>()(t.sub)
+			+ 13 * std::hash<ResT>()(t.pred)
+			+ 17 * std::hash<ResT>()(t.obj);
+	}
+};
+
+
+template <typename T1, typename T2>
+struct hash<pair<T1, T2>>
+{
+	std::size_t operator()(const pair<T1, T2>& p) const
+	{
+		return std::hash<T1>()(p.first)
+			+ 19 * std::hash<T2>()(p.second);
+	}
+};
 
 }  // namespace std
 

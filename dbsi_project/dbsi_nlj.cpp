@@ -2,7 +2,6 @@
 #include "dbsi_assert.h"
 #include "dbsi_rdf_index.h"
 #include "dbsi_pattern_utils.h"
-#include <iostream>
 
 
 namespace dbsi
@@ -45,6 +44,10 @@ public:
 		CodedVarMap vm;
 		for (const auto& iter : m_iter_depth)
 		{
+			// even with the remark above, it is still necessary
+			// for all iterators to be valid!
+			DBSI_CHECK_INVARIANT(iter->valid());
+
 			bool success = merge(vm, iter->current());
 
 			// if this fails then the RDF index iterator
@@ -72,28 +75,47 @@ public:
 private:
 	void update_iterators()
 	{
-		// get rid of any finished iterators
-		while (!m_iter_depth.empty() && !m_iter_depth.back()->valid())
+		// while there exists a finished iterator at the back,
+		// or we need to create more iterators
+		while (!m_iter_depth.empty() && (
+			!m_iter_depth.back()->valid() || m_iter_depth.size() < m_patterns.size()))
 		{
-			m_iter_depth.pop_back();
-			if (!m_iter_depth.empty())
-				m_iter_depth.back()->next();
+			// clear all finished iterators
+			while (!m_iter_depth.empty() && !m_iter_depth.back()->valid())
+			{
+				m_iter_depth.pop_back();
+				if (!m_iter_depth.empty())
+				{
+					DBSI_CHECK_INVARIANT(m_iter_depth.back()->valid());
+					m_iter_depth.back()->next();
+				}
+			}
+
+			// bring the list back up to full strength
+			// (more than one will be added where necessary
+			// due to the outer while loop; we need to be careful
+			// that we don't do it here, in case newly created
+			// iterators are invalid.)
+			if (!m_iter_depth.empty() && m_iter_depth.size() < m_patterns.size())
+			{
+				// get current pattern
+				CodedTriplePattern pat = m_patterns[m_iter_depth.size()];
+				// fill in any variables set by outer loops
+				pat = substitute(current(), std::move(pat));
+				// create iterator for next loop depth
+				m_iter_depth.push_back(
+					m_idx.evaluate(std::move(pat))
+				);
+				// start iterator
+				m_iter_depth.back()->start();
+
+				// NOTE: no guarantee that this new iterator is valid,
+				// this will be checked again in the outer while loop.
+			}
 		}
 
-		// bring the list back up to full strength
-		while (!m_iter_depth.empty() && m_iter_depth.size() < m_patterns.size())
-		{
-			// get current pattern
-			CodedTriplePattern pat = m_patterns[m_iter_depth.size()];
-			// fill in any variables set by outer loops
-			pat = substitute(current(), std::move(pat));
-			// create iterator for next loop depth
-			m_iter_depth.push_back(
-				m_idx.evaluate(std::move(pat))
-			);
-			// start iterator
-			m_iter_depth.back()->start();
-		}
+		DBSI_CHECK_INVARIANT(m_iter_depth.empty() ||
+			m_iter_depth.size() == m_patterns.size());
 	}
 
 private:

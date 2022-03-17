@@ -35,9 +35,10 @@ bool pattern_matches(const GeneralTerm<ResT>& t, const ResT& r)
 template<typename ResT>
 bool pattern_matches(const GeneralTriplePattern<ResT>& pat, const GeneralTriple<ResT>& t)
 {
-	return pattern_matches(pat.sub, t.sub) &&
-		pattern_matches(pat.pred, t.pred) &&
-		pattern_matches(pat.obj, t.obj);
+	// unfortunately this isn't so simple because we need to check
+	// that the variable assignments are consistent
+	// (although this could probably be optimised)
+	return (bool)bind(pat, t);
 }
 
 
@@ -75,6 +76,14 @@ bool merge(VarMapT& out, const VarMapT& in)
 			++iter_out;
 			++iter_in;
 		}
+	}
+	// there may be some more elements for us to copy over
+	while (iter_in != in.cend())
+	{
+		// the hint `out.end()` means this should be O(1)
+		// complexity
+		out.insert(out.end(), *iter_in);
+		++iter_in;
 	}
 
 	return true;

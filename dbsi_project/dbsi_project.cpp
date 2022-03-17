@@ -7,6 +7,7 @@
 #include "dbsi_query.h"
 #include "dbsi_dictionary_utils.h"
 #include "dbsi_nlj.h"
+#include "dbsi_rdf_index_helper.h"
 
 
 using namespace dbsi;
