@@ -1,5 +1,5 @@
 #include <cctype>
-#include <sstream>
+#include <list>
 #include "dbsi_turtle.h"
 #include "dbsi_assert.h"
 
@@ -88,8 +88,8 @@ private:
 		
 		// figure out what the first (necessarily non-whitespace) character is
 		char c = m_in.get();
-		std::stringstream out;
-		out << c;
+		std::list<char> out;
+		out.push_back(c);
 
 		if (c == '<')  // IRI
 		{
@@ -98,12 +98,12 @@ private:
 				// file is corrupt if this fails
 				DBSI_CHECK_PRECOND((bool)m_in);
 
-				out << c;
+				out.push_back(c);
 			}
 
-			out << c;
+			out.push_back(c);
 
-			return IRI{ out.str() };
+			return IRI{ std::string(out.begin(), out.end()) };
 		}
 		else if (c == '"')  // literal
 		{
@@ -112,12 +112,12 @@ private:
 				// file is corrupt if this fails
 				DBSI_CHECK_PRECOND((bool)m_in);
 
-				out << c;
+				out.push_back(c);
 			}
 
-			out << c;
+			out.push_back(c);
 
-			return Literal{ out.str() };
+			return Literal{ std::string(out.begin(), out.end()) };
 		}
 		else
 		{
