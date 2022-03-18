@@ -1,5 +1,5 @@
 #include "dbsi_parse_helper.h"
-#include <list>
+#include <vector>
 
 
 namespace dbsi
@@ -8,6 +8,13 @@ namespace dbsi
 
 std::optional<Resource> parse_resource(std::istream& in)
 {
+	// this buffer is especially for reducing allocations between
+	// resource parses.
+	// the only downside is it is persistent, so technically, extremely
+	// long IRIs/Literals will be held twice in memory, but that is
+	// unlikely and it is a big improvement to load times.
+	static std::vector<char> str(32);
+
 	// if the stream starts bad
 	if (!in)
 		return std::nullopt;
@@ -26,7 +33,7 @@ std::optional<Resource> parse_resource(std::istream& in)
 	if (!in)
 		return std::nullopt;
 
-	std::list<char> str;
+	str.clear();
 	const char end_char = (start_char == '<') ? '>' : '"';
 	char next_char;
 
