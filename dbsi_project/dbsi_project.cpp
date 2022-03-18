@@ -131,6 +131,7 @@ public:
 	{
 		const auto start_time = std::chrono::system_clock::now();
 		auto iter = evaluate_patterns(q.match);
+		const auto planning_time = std::chrono::system_clock::now();
 
 		iter->start();
 		size_t count = 0;
@@ -142,15 +143,20 @@ public:
 
 		const auto end_time = std::chrono::system_clock::now();
 
-		std::cout << "Total count: " << count << ", obtained in " <<
+		std::cout << count << " results obtained in " <<
 			std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count()
-			<< "ms." << std::endl;
+			<< "ms (= " <<
+			std::chrono::duration_cast<std::chrono::milliseconds>(planning_time - start_time).count()
+			<< "ms planning + " <<
+			std::chrono::duration_cast<std::chrono::milliseconds>(end_time - planning_time).count()
+			<< "ms evaluation)." << std::endl;
 	}
 
 	void operator()(const SelectQuery& q)
 	{
 		const auto start_time = std::chrono::system_clock::now();
 		auto iter = evaluate_patterns(q.match);
+		const auto planning_time = std::chrono::system_clock::now();
 
 		// header
 		std::cout << "----------" << std::endl;
@@ -193,7 +199,11 @@ public:
 
 		std::cout << count << " results obtained in " <<
 			std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count()
-			<< "ms." << std::endl;
+			<< "ms (= " <<
+			std::chrono::duration_cast<std::chrono::milliseconds>(planning_time - start_time).count()
+			<< "ms planning + " <<
+			std::chrono::duration_cast<std::chrono::milliseconds>(end_time - planning_time).count()
+			<< "ms evaluation)." << std::endl;
 	}
 
 	bool done() const
