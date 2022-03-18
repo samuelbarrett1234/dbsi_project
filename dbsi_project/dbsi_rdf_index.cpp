@@ -121,7 +121,11 @@ std::unique_ptr<ICodedVarMapIterator> RDFIndex::evaluate(CodedTriplePattern patt
 	switch (index_type)
 	{
 	case IndexType::NONE:
-		start_index = 0;
+		// in almost all cases, this means the start index is 0,
+		// however in the special case where the DB is empty, 0
+		// is an unnacceptable index (see the assertion at the
+		// bottom of this function).
+		start_index = (m_triples.empty()) ? rdf_idx_helper::TABLE_END : 0;
 		break;
 	case IndexType::SUB:
 		// if this fails, `plan_pattern` is faulty
