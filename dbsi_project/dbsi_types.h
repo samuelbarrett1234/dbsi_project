@@ -109,11 +109,11 @@ struct DbsiToStringVisitor
 {
 	std::string operator()(const Literal& l)
 	{
-		return l.val;
+		return '"' + l.val + '"';
 	}
 	std::string operator()(const IRI& l)
 	{
-		return l.val;
+		return '<' + l.val + '>';
 	}
 	std::string operator()(const Resource& r)
 	{
