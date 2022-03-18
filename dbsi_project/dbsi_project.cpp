@@ -69,6 +69,35 @@ private:
 
 
 /*
+* Get a string reprsentation of a triple plan type.
+*/
+std::string trip_pat_type_str(TriplePatternType type)
+{
+	switch (type)
+	{
+	case TriplePatternType::VVV:
+		return "VVV";
+	case TriplePatternType::VVO:
+		return "VVO";
+	case TriplePatternType::VPV:
+		return "VPV";
+	case TriplePatternType::SVV:
+		return "SVV";
+	case TriplePatternType::VPO:
+		return "VPO";
+	case TriplePatternType::SVO:
+		return "SVO";
+	case TriplePatternType::SPV:
+		return "SPV";
+	case TriplePatternType::SPO:
+		return "SPO";
+	default:
+		DBSI_CHECK_PRECOND(false);
+	}
+}
+
+
+/*
 * This class contains the main database data structures
 * such as the index, but also acts as a visitor to the
 * std::variant returned by `parse_query`, leading to an
@@ -77,8 +106,9 @@ private:
 class QueryApplication
 {
 public:
-	QueryApplication() :
-		m_done(false)
+	QueryApplication(bool log_plan_types) :
+		m_done(false),
+		m_log_plan_types(log_plan_types)
 	{ }
 
 	void operator()(const EmptyQuery&) {}
@@ -129,40 +159,36 @@ public:
 
 	void operator()(const CountQuery& q)
 	{
-		const auto start_time = std::chrono::system_clock::now();
-		auto iter = evaluate_patterns(q.match);
-		const auto planning_time = std::chrono::system_clock::now();
-
-		iter->start();
-		size_t count = 0;
-		while (iter->valid())
-		{
-			++count;
-			iter->next();
-		}
-
-		const auto end_time = std::chrono::system_clock::now();
-
-		std::cout << count << " results obtained in " <<
-			std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count()
-			<< "ms (= " <<
-			std::chrono::duration_cast<std::chrono::milliseconds>(planning_time - start_time).count()
-			<< "ms planning + " <<
-			std::chrono::duration_cast<std::chrono::milliseconds>(end_time - planning_time).count()
-			<< "ms evaluation)." << std::endl;
+		SelectQuery q2;
+		q2.match = q.match;
+		(*this)(q2);
 	}
 
 	void operator()(const SelectQuery& q)
 	{
+		const bool print_mode = (!q.projection.empty());
 		const auto start_time = std::chrono::system_clock::now();
+
 		auto iter = evaluate_patterns(q.match);
+
+		if (m_log_plan_types)
+		{
+			std::cout << "\t--> NLJ over patterns with types ";
+			for (const auto& pat : q.match)
+				std::cout << trip_pat_type_str(pattern_type(pat)) << ' ';
+			std::cout << std::endl;
+		}
+
 		const auto planning_time = std::chrono::system_clock::now();
 
 		// header
-		std::cout << "----------" << std::endl;
-		for (const auto& v : q.projection)
-			std::cout << v.name << '\t';
-		std::cout << std::endl;
+		if (print_mode)
+		{
+			std::cout << "----------" << std::endl;
+			for (const auto& v : q.projection)
+				std::cout << v.name << '\t';
+			std::cout << std::endl;
+		}
 
 		size_t count = 0;
 		iter->start();
@@ -171,29 +197,35 @@ public:
 			// get current map
 			const auto vm = iter->current();
 
-			// print columns
-			for (size_t i = 0; i < q.projection.size(); ++i)
+			if (print_mode)
 			{
-				auto vm_iter = vm.find(q.projection[i]);
-				if (vm_iter != vm.end())
+				// print columns in this row
+				for (size_t i = 0; i < q.projection.size(); ++i)
 				{
-					std::cout << std::visit(DbsiToStringVisitor(),
-						vm_iter->second) << '\t';
+					auto vm_iter = vm.find(q.projection[i]);
+					if (vm_iter != vm.end())
+					{
+						std::cout << std::visit(DbsiToStringVisitor(),
+							vm_iter->second) << '\t';
+					}
+					else
+					{
+						// in this case the user has mentioned a variable
+						// in the projection which is not present in the
+						// patterns
+						std::cout << q.projection[i].name << '\t';
+					}
 				}
-				else
-				{
-					// in this case the user has mentioned a variable
-					// in the projection which is not present in the
-					// patterns
-					std::cout << q.projection[i].name << '\t';
-				}
+				std::cout << std::endl;
 			}
-			std::cout << std::endl;
 
 			iter->next();
 			++count;
 		}
-		std::cout << "----------" << std::endl;
+
+		// footer
+		if (print_mode)
+			std::cout << "----------" << std::endl;
 
 		const auto end_time = std::chrono::system_clock::now();
 
@@ -237,44 +269,46 @@ private:
 
 private:
 	bool m_done;
+	const bool m_log_plan_types;
 	Dictionary m_dict;
 	RDFIndex m_idx;
 };
 
 
+void show_help()
+{
+	std::cout << "-h : Print help. If using this option, no other options can be used." << std::endl;
+	std::cout << "-L : Show join plan selection types. Good for debugging performance "
+		"issues. If used, it must be appear before any -i or -f options." << std::endl;
+	std::cout << "-i query : Execute query/queries." << std::endl;
+	std::cout << "-f filename : Execute query/queries from file." << std::endl;
+	std::cout << "Using either -i or -f will open the application in non-interactive "
+		"mode, and the application will exit automatically after running all "
+		"given commands. Not using -i or -f will open the application in interactive "
+		"mode, where you can type what you want, and have to manually close with `QUIT`." << std::endl;
+}
+
+
 int main(int argc, char* argv[])
 {
-	if (argc == 2)
+	if (argc == 2 && std::string(argv[1]) == "-h")
 	{
-		if (std::string(argv[1]) != "-h")
-			std::cerr << "Invalid option " << argv[1]
-			<< ", showing help:" << std::endl;
-
-		std::cout << "-h : print help." << std::endl;
-		std::cout << "-i query : execute query/queries." << std::endl;
-		std::cout << "-f filename : execute query/queries from file." << std::endl;
-		std::cout << "Using either -i or -f will open the application in non-interactive "
-			"mode, and the application will exit automatically after running all "
-			"given commands. Not using -i or -f will open the application in interactive "
-			"mode, where you can type what you want, and have to manually close with `QUIT`." << std::endl;
+		show_help();
 		return 0;
 	}
 
-	if (argc % 2 == 0)
-	{
-		std::cerr << "Invalid number of command line arguments given." << std::endl;
-		return 1;
-	}
-	const int num_commands = (argc - 1) / 2;
+	const bool log_plan_types = (argc > 1 && std::string(argv[1]) == "-L");
+	const int cmd_start_idx = log_plan_types ? 2 : 1;
+	const int num_commands = (argc - cmd_start_idx) / 2;
 
-	QueryApplication app;
+	QueryApplication app(log_plan_types);
 
 	if (num_commands > 0)  // noninteractive mode
 	{
 		for (int i = 0; i < num_commands && !app.done(); ++i)
 		{
-			std::string cmd = argv[2 * i + 1];
-			std::string arg = argv[2 * i + 2];
+			std::string cmd = argv[2 * i + cmd_start_idx];
+			std::string arg = argv[2 * i + cmd_start_idx + 1];
 			if (cmd == "-i")
 			{
 				std::stringstream cmd_in(arg);
@@ -299,8 +333,9 @@ int main(int argc, char* argv[])
 			else
 			{
 				std::cerr << "Bad command '" << cmd
-					<< "', must either be '-i' or '-f'."
+					<< "', must either be '-i' or '-f'. Showing help."
 					<< std::endl;
+				show_help();
 				return 1;
 			}
 		}
