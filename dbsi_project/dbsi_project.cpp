@@ -217,6 +217,9 @@ private:
 			std::transform(pats.begin(), pats.end(), std::back_inserter(coded_pats),
 				[this](const TriplePattern& pat) { return encode(m_dict, pat); });
 
+			// join optimisation!
+			joins::greedy_join_order_opt(coded_pats);
+
 			return autodecode(m_dict,
 				joins::create_nested_loop_join_iterator(m_idx, std::move(coded_pats)));
 		}

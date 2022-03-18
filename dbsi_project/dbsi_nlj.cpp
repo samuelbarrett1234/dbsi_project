@@ -10,6 +10,89 @@ namespace joins
 {
 
 
+/*
+* Score a pattern based on how selective it is estimated
+* to be.
+* The ordering here is given by the ordering from the paper.
+* Lower scores are better.
+*/
+int score_pattern(TriplePatternType type)
+{
+	switch (type)
+	{
+	case TriplePatternType::SPO:
+		return 0;
+	case TriplePatternType::SVO:
+		return 1;
+	case TriplePatternType::VPO:
+		return 2;
+	case TriplePatternType::SPV:
+		return 3;
+	case TriplePatternType::VVO:
+		return 4;
+	case TriplePatternType::SVV:
+		return 5;
+	case TriplePatternType::VPV:
+		return 6;
+	case TriplePatternType::VVV:
+		return 7;
+	default:
+		DBSI_CHECK_PRECOND(false);
+	}
+}
+
+
+/*
+* Given a pattern, create a variable map which
+* includes all of the variables mentioned in `pat`,
+* but which map those variables to arbitrary values.
+*/
+CodedVarMap get_arbitrary_var_map(const CodedTriplePattern& pat)
+{
+	// keeps track of which variables have been bound,
+	// but doesn't care about what values they map to
+	struct CodedVarMapTracker
+	{
+		void operator()(const CodedResource&) {}  // do nothing
+		void operator()(const Variable& v)
+		{
+			// add variable name to `cvm`, it doesn't matter with what value
+			cvm[v] = 0;
+		}
+
+		CodedVarMap cvm;
+	};
+
+	CodedVarMapTracker tracker;
+	std::visit(tracker, pat.sub);
+	std::visit(tracker, pat.pred);
+	std::visit(tracker, pat.obj);
+
+	return tracker.cvm;
+}
+
+
+/*
+* Returns true iff the two coded var maps
+* share no variables.
+*/
+bool var_maps_disjoint(const CodedVarMap& cvm1, const CodedVarMap& cvm2)
+{
+	auto iter1 = cvm1.cbegin();
+	auto iter2 = cvm2.cbegin();
+	while (iter1 != cvm1.cend() && iter2 != cvm2.cend())
+	{
+		if (iter1->first < iter2->first)
+			++iter1;
+		else if (iter1->first > iter2->first)
+			++iter2;
+		else
+			return false;
+	}
+	return true;
+}
+
+
 class NestedLoopJoinIterator :
 	public ICodedVarMapIterator
 {
@@ -141,6 +224,72 @@ std::unique_ptr<ICodedVarMapIterator> create_nested_loop_join_iterator(
 {
 	DBSI_CHECK_PRECOND(patterns.size() > 0);
 	return std::make_unique<NestedLoopJoinIterator>(rdf_idx, std::move(patterns));
+}
+
+
+void greedy_join_order_opt(std::vector<CodedTriplePattern>& patterns)
+{
+	static const size_t bad_idx = static_cast<size_t>(-1);
+
+	CodedVarMap cvm;
+	for (size_t cur_idx = 0; cur_idx < patterns.size(); ++cur_idx)
+	{
+		// firstly, get the pattern in range [cur_idx, patterns.size())
+		// with lowest score, where the score is determined by the
+		// pattern conditional on the maps from patterns in range
+		// [0, cur_idx).
+		size_t best_idx = bad_idx;
+		int best_score = 10;  // or any number > 7
+		CodedVarMap best_cvm;
+		for (size_t i = cur_idx; i < patterns.size(); ++i)
+		{
+			// get the pattern's variable map, and its score after substitution
+			CodedVarMap cur_cvm = get_arbitrary_var_map(patterns[i]);
+			const int cur_score = score_pattern(pattern_type(
+				substitute(cvm, patterns[i])));
+
+			/*
+			* In addition to selecting only when the score is better,
+			* we also want to only select when it's not going to create
+			* a full cross product.
+			* In order to avoid a full cross product, they either have
+			* to share a variable in common, or the new CVM has no variables
+			* (in which case it is just an index lookup).
+			* 
+			* Note: in the special case where there are no unavoidable
+			* cross products, we have to arbitrarily pick a next pattern
+			* to be joined. WLOG we may pick the one at `cur_idx`. This
+			* case is handled by the `else if`.
+			*/
+			if (cur_score < best_score &&
+				(cur_cvm.empty() || !var_maps_disjoint(cvm, cur_cvm)))
+			{
+				best_idx = i;
+				best_score = cur_score;
+				best_cvm = std::move(cur_cvm);
+			}
+			else if (best_idx == bad_idx)
+			{
+				DBSI_CHECK_INVARIANT(i == cur_idx);
+				best_idx = i;
+				best_cvm = std::move(cur_cvm);
+			}
+		}
+
+		DBSI_CHECK_INVARIANT(best_idx < patterns.size() && best_idx >= cur_idx);
+
+		// now that we have selected a pattern, move it to index `cur_idx`,
+		// then add its variables to `cvm`
+		std::swap(patterns[cur_idx], patterns[best_idx]);
+
+		// merge CVMs
+		const bool ok = merge(cvm, best_cvm);
+		DBSI_CHECK_INVARIANT(ok);
+	}
+
+	// finally, reverse the order, because my implementation of nested loop
+	// join is "the other way round"!
+	std::reverse(patterns.begin(), patterns.end());
 }
 
 
