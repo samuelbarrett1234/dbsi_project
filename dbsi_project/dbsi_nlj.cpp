@@ -14,7 +14,7 @@ namespace joins
 * Score a pattern based on how selective it is estimated
 * to be.
 * The ordering here is given by the ordering from the paper.
-* Lower scores are better.
+* Lower scores are more selective.
 */
 int score_pattern(TriplePatternType type)
 {
@@ -239,7 +239,7 @@ void greedy_join_order_opt(std::vector<CodedTriplePattern>& patterns)
 		// pattern conditional on the maps from patterns in range
 		// [0, cur_idx).
 		size_t best_idx = bad_idx;
-		int best_score = 10;  // or any number > 7
+		int best_score = -1;  // or any number < 0
 		CodedVarMap best_cvm;
 		for (size_t i = cur_idx; i < patterns.size(); ++i)
 		{
@@ -256,12 +256,18 @@ void greedy_join_order_opt(std::vector<CodedTriplePattern>& patterns)
 			* to share a variable in common, or the new CVM has no variables
 			* (in which case it is just an index lookup).
 			* 
+			* Note: here I am requiring `cur_score > best_score`, rather
+			* than `cur_score < best_score` as is given in the exam question
+			* paper, because my nested loop join implementation does things
+			* the other way around. Experimentation with < versus > confirms
+			* my suspicions, because as is, it is MUCH faster.
+			* 
 			* Note: in the special case where there are no unavoidable
 			* cross products, we have to arbitrarily pick a next pattern
 			* to be joined. WLOG we may pick the one at `cur_idx`. This
 			* case is handled by the `else if`.
 			*/
-			if (cur_score < best_score &&
+			if (cur_score > best_score &&
 				(cur_cvm.empty() || !var_maps_disjoint(cvm, cur_cvm)))
 			{
 				best_idx = i;
@@ -286,10 +292,6 @@ void greedy_join_order_opt(std::vector<CodedTriplePattern>& patterns)
 		const bool ok = merge(cvm, best_cvm);
 		DBSI_CHECK_INVARIANT(ok);
 	}
-
-	// finally, reverse the order, because my implementation of nested loop
-	// join is "the other way round"!
-	std::reverse(patterns.begin(), patterns.end());
 }
 
 
