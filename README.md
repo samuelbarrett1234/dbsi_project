@@ -26,3 +26,21 @@ You can either invoke the executable with no arguments, which enters _interactiv
 For example, using noninteractive mode you can write:
 ```./dbsi_project -i "LOAD family_guy.ttl" -i "SELECT ?X ?Z WHERE { ?X <hasAge> ?Y . ?Z <hasAge> ?Y . }"```
 and it will print the answers and terminate.
+
+## Compilation
+
+This project uses a very basic `CMakeLists.txt`, so if you know CMake, you can compile this yourself how you like.
+The steps are essentially the same as those used in the Database Systems Implementation practicals.
+But the precise steps are as follows.
+Change directory to the *parent directory of* the root folder of this project, which you have unzipped, so that the project is at `dbsi_project/`.
+Then create a folder `build/` (or called whatever you like) and change directory into it.
+Run `cmake ../dbsi_project`, followed by `make`.
+Both of these should work without errors.
+The executable is then available in the new folder `dbsi_project`.
+
+*Please note that this project requires C++17. CMake should already detect this.*
+Also, note that `make` might issue warnings, but this is OK.
+
+### Compilers Tested
+
+This code compiles on the department lab machines (using GCC 11.2.1 20220127 (Red Hat 11.2.1-9)), and on Microsoft Visual Studio.
