@@ -69,35 +69,6 @@ private:
 
 
 /*
-* Get a string reprsentation of a triple plan type.
-*/
-std::string trip_pat_type_str(TriplePatternType type)
-{
-	switch (type)
-	{
-	case TriplePatternType::VVV:
-		return "VVV";
-	case TriplePatternType::VVO:
-		return "VVO";
-	case TriplePatternType::VPV:
-		return "VPV";
-	case TriplePatternType::SVV:
-		return "SVV";
-	case TriplePatternType::VPO:
-		return "VPO";
-	case TriplePatternType::SVO:
-		return "SVO";
-	case TriplePatternType::SPV:
-		return "SPV";
-	case TriplePatternType::SPO:
-		return "SPO";
-	default:
-		DBSI_CHECK_PRECOND(false);
-	}
-}
-
-
-/*
 * This class contains the main database data structures
 * such as the index, but also acts as a visitor to the
 * std::variant returned by `parse_query`, leading to an
@@ -168,17 +139,7 @@ public:
 	{
 		const bool print_mode = (!q.projection.empty());
 		const auto start_time = std::chrono::system_clock::now();
-
 		auto iter = evaluate_patterns(q.match);
-
-		if (m_log_plan_types)
-		{
-			std::cout << "\t--> NLJ over patterns with types ";
-			for (const auto& pat : q.match)
-				std::cout << trip_pat_type_str(pattern_type(pat)) << ' ';
-			std::cout << std::endl;
-		}
-
 		const auto planning_time = std::chrono::system_clock::now();
 
 		// header
@@ -261,6 +222,14 @@ private:
 
 			// join optimisation!
 			joins::smart_join_order_opt(coded_pats);
+
+			if (m_log_plan_types)
+			{
+				std::cout << "\t--> NLJ over patterns with types ";
+				for (const auto& pat : coded_pats)
+					std::cout << trip_pat_type_str(pattern_type(pat)) << ' ';
+				std::cout << std::endl;
+			}
 
 			return autodecode(m_dict,
 				joins::create_nested_loop_join_iterator(m_idx, std::move(coded_pats)));
