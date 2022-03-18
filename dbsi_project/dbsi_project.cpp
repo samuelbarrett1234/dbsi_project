@@ -243,6 +243,10 @@ int main(int argc, char* argv[])
 		std::cout << "-h : print help." << std::endl;
 		std::cout << "-i query : execute query/queries." << std::endl;
 		std::cout << "-f filename : execute query/queries from file." << std::endl;
+		std::cout << "Using either -i or -f will open the application in non-interactive "
+			"mode, and the application will exit automatically after running all "
+			"given commands. Not using -i or -f will open the application in interactive "
+			"mode, where you can type what you want, and have to manually close with `QUIT`." << std::endl;
 		return 0;
 	}
 
@@ -255,44 +259,48 @@ int main(int argc, char* argv[])
 
 	QueryApplication app;
 
-	// start by parsing any command line arguments
-	for (int i = 0; i < num_commands && !app.done(); ++i)
+	if (num_commands > 0)  // noninteractive mode
 	{
-		std::string cmd = argv[2 * i + 1];
-		std::string arg = argv[2 * i + 2];
-		if (cmd == "-i")
+		for (int i = 0; i < num_commands && !app.done(); ++i)
 		{
-			std::stringstream cmd_in(arg);
-			while (!app.done() && cmd_in)
+			std::string cmd = argv[2 * i + 1];
+			std::string arg = argv[2 * i + 2];
+			if (cmd == "-i")
 			{
-				std::visit(app, parse_query(cmd_in));
+				std::stringstream cmd_in(arg);
+				while (!app.done() && cmd_in)
+				{
+					std::visit(app, parse_query(cmd_in));
+				}
 			}
-		}
-		else if (cmd == "-f")
-		{
-			std::ifstream cmd_in(arg, std::ios::binary);
-			if (!cmd_in)
+			else if (cmd == "-f")
 			{
-				std::cerr << "Cannot open file '" << arg << "'." << std::endl;
+				std::ifstream cmd_in(arg, std::ios::binary);
+				if (!cmd_in)
+				{
+					std::cerr << "Cannot open file '" << arg << "'." << std::endl;
+					return 1;
+				}
+				while (!app.done() && cmd_in)
+				{
+					std::visit(app, parse_query(cmd_in));
+				}
+			}
+			else
+			{
+				std::cerr << "Bad command '" << cmd
+					<< "', must either be '-i' or '-f'."
+					<< std::endl;
 				return 1;
 			}
-			while (!app.done() && cmd_in)
-			{
-				std::visit(app, parse_query(cmd_in));
-			}
-		}
-		else
-		{
-			std::cerr << "Bad command '" << cmd
-				<< "', must either be '-i' or '-f'."
-				<< std::endl;
-			return 1;
 		}
 	}
-
-	while (!app.done())
+	else  // interactive mode
 	{
-		std::visit(app, parse_query(std::cin));
+		while (!app.done())
+		{
+			std::visit(app, parse_query(std::cin));
+		}
 	}
 
 	return 0;
