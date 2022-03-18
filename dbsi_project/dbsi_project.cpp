@@ -66,7 +66,7 @@ public:
 		const auto end_time = std::chrono::system_clock::now();
 
 		std::cout << "Loaded " << add_count << " triples in " <<
-			std::chrono::duration_cast<std::chrono::milliseconds>(start_time - end_time).count()
+			std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count()
 			<< "ms." << std::endl;
 	}
 
@@ -86,7 +86,7 @@ public:
 		const auto end_time = std::chrono::system_clock::now();
 
 		std::cout << "Total count: " << count << ", obtained in " <<
-			std::chrono::duration_cast<std::chrono::milliseconds>(start_time - end_time).count()
+			std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count()
 			<< "ms." << std::endl;
 	}
 
@@ -135,7 +135,7 @@ public:
 		const auto end_time = std::chrono::system_clock::now();
 
 		std::cout << count << " results obtained in " <<
-			std::chrono::duration_cast<std::chrono::milliseconds>(start_time - end_time).count()
+			std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count()
 			<< "ms." << std::endl;
 	}
 
