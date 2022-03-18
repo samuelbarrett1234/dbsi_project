@@ -19,12 +19,16 @@ public:
 		std::vector<CodedTriplePattern> patterns) :
 		m_idx(rdf_idx),
 		m_patterns(std::move(patterns))
-	{ }
+	{
+		DBSI_CHECK_PRECOND(m_patterns.size() > 0);
+	}
 
 	void start() override
 	{
 		// clear any old iterators
 		m_iter_depth.clear();
+
+		if (!m_patterns.empty())
 		// initialise with outermost loop
 		m_iter_depth.push_back(m_idx.evaluate(m_patterns[0]));
 		// start first iterator
@@ -135,6 +139,7 @@ private:
 std::unique_ptr<ICodedVarMapIterator> create_nested_loop_join_iterator(
 	const RDFIndex& rdf_idx, std::vector<CodedTriplePattern> patterns)
 {
+	DBSI_CHECK_PRECOND(patterns.size() > 0);
 	return std::make_unique<NestedLoopJoinIterator>(rdf_idx, std::move(patterns));
 }
 

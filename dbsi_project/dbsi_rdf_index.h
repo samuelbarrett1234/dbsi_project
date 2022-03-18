@@ -89,6 +89,15 @@ public:
 	*/
 	std::unique_ptr<ICodedVarMapIterator> evaluate(CodedTriplePattern pattern) const;
 
+	/*
+	* Perform a basic full scan over the RDF database.
+	* Note that this functionality is NOT encapsulated by `evaluate`,
+	* because in order to do a full scan using `evaluate`, you necessarily
+	* have to bind variables with names, whereas this function has
+	* nothing to do with variables.
+	*/
+	std::unique_ptr<ICodedTripleIterator> full_scan() const;
+
 private:
 	/*
 	* This function takes a pattern, and chooses (i) which, if any,

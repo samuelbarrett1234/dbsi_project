@@ -203,6 +203,42 @@ std::unique_ptr<ICodedVarMapIterator> RDFIndex::evaluate(CodedTriplePattern patt
 }
 
 
+std::unique_ptr<ICodedTripleIterator> RDFIndex::full_scan() const
+{
+	// keeping this class internal to this function because it's so simple
+	class FullRDFScanIterator :
+		public ICodedTripleIterator
+	{
+	public:
+		FullRDFScanIterator(const rdf_idx_helper::Table& table) :
+			m_table(table), m_idx(0)
+		{ }
+
+		void start() override { m_idx = 0; }
+
+		bool valid() const override { return m_idx < m_table.size(); }
+
+		void next() override
+		{
+			DBSI_CHECK_PRECOND(valid());
+			++m_idx;
+		}
+
+		CodedTriple current() const override
+		{
+			DBSI_CHECK_PRECOND(valid());
+			return m_table[m_idx].t;
+		}
+
+	private:
+		const rdf_idx_helper::Table& m_table;
+		size_t m_idx;
+	};
+
+	return std::make_unique<FullRDFScanIterator>(m_triples);
+}
+
+
 std::pair<RDFIndex::IndexType, RDFIndex::EvaluationType> RDFIndex::plan_pattern(
 	CodedTriplePattern pattern) const
 {

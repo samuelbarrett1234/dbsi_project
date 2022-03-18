@@ -3,6 +3,7 @@
 #include <chrono>
 #include <sstream>
 #include <algorithm>
+#include "dbsi_assert.h"
 #include "dbsi_dictionary.h"
 #include "dbsi_rdf_index.h"
 #include "dbsi_turtle.h"
@@ -12,6 +13,59 @@
 
 
 using namespace dbsi;
+
+
+/*
+* This class is a bit annoying to have to implement,
+* but it serves a single niche purpose, later in this
+* file. If this is your first time reading the file,
+* ignore this class.
+* 
+* What it does: takes an iterator over values of type
+* U, but ignores those values, and always returns a
+* default-constructed instance of a T.
+* It is valid precisely when the given input U-iterator
+* is valid.
+* 
+* What this is used for: when performing a selection
+* over the entire DB, we use the RDF index's `full_scan`
+* method, which returns an iterator over coded triples.
+* However, our function `QueryApplication::evaluate_patterns`
+* below returns iterators over `VarMap`s. But, since we
+* don't care about the return results (*), we can just
+* default construct `VarMap` for each coded triple in the
+* DB.
+* 
+* (*) Why we don't care about the return results: because
+* the query is of the form
+* SELECT/COUNT ?X1 ... ?Xn WHERE { }
+* so the variables are not bound to anything!
+*/
+template<typename T, typename U>
+class NullIterator :
+	public IIterator<T>
+{
+public:
+	NullIterator(std::unique_ptr<IIterator<U>> p_iter) :
+		m_iter(std::move(p_iter))
+	{ }
+
+	void start() override { m_iter->start(); }
+	bool valid() const override { return m_iter->valid(); }
+	void next() override
+	{
+		m_iter->next();
+	}
+	T current() const override
+	{
+		DBSI_CHECK_PRECOND(valid());
+		return m_my_T;
+	}
+
+private:
+	T m_my_T;
+	std::unique_ptr<IIterator<U>> m_iter;
+};
 
 
 /*
@@ -150,13 +204,22 @@ public:
 private:
 	std::unique_ptr<IVarMapIterator> evaluate_patterns(std::vector<TriplePattern> pats)
 	{
-		// first need to encode the patterns
-		std::vector<CodedTriplePattern> coded_pats;
-		std::transform(pats.begin(), pats.end(), std::back_inserter(coded_pats),
-			[this](const TriplePattern& pat) { return encode(m_dict, pat); });
+		if (pats.empty())
+		{
+			// if there is an empty where clause, then all triples
+			// satisfy the query, by vacuosity
+			return std::make_unique<NullIterator<VarMap, CodedTriple>>(m_idx.full_scan());
+		}
+		else
+		{
+			// first need to encode the patterns
+			std::vector<CodedTriplePattern> coded_pats;
+			std::transform(pats.begin(), pats.end(), std::back_inserter(coded_pats),
+				[this](const TriplePattern& pat) { return encode(m_dict, pat); });
 
-		return autodecode(m_dict,
-			joins::create_nested_loop_join_iterator(m_idx, std::move(coded_pats)));
+			return autodecode(m_dict,
+				joins::create_nested_loop_join_iterator(m_idx, std::move(coded_pats)));
+		}
 	}
 
 private:
