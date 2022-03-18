@@ -26,9 +26,9 @@ public:
 		m_done(false)
 	{ }
 
-	void operator()(const BadQuery&)
+	void operator()(const BadQuery& e)
 	{
-		std::cerr << "Bad, or no, query." << std::endl;
+		std::cerr << "Bad query. Error: " << e.error << std::endl;
 	}
 
 	void operator()(const QuitQuery&)
@@ -111,8 +111,19 @@ public:
 			// print columns
 			for (size_t i = 0; i < q.projection.size(); ++i)
 			{
-				std::cout << std::visit(DbsiToStringVisitor(),
-					vm.at(q.projection[i])) << '\t';
+				auto vm_iter = vm.find(q.projection[i]);
+				if (vm_iter != vm.end())
+				{
+					std::cout << std::visit(DbsiToStringVisitor(),
+						vm_iter->second) << '\t';
+				}
+				else
+				{
+					// in this case the user has mentioned a variable
+					// in the projection which is not present in the
+					// patterns
+					std::cout << q.projection[i].name << '\t';
+				}
 			}
 			std::cout << std::endl;
 

@@ -13,7 +13,13 @@ namespace dbsi
 {
 
 
-struct BadQuery {};
+struct BadQuery
+{
+	BadQuery(std::string e) :
+		error(std::move(e))
+	{ }
+	std::string error;
+};
 
 
 struct SelectQuery
