@@ -156,19 +156,36 @@ std::optional<GeneralVarMap<ResT>> bind(GeneralTerm<ResT> t, ResT r)
 template<typename ResT>
 std::optional<GeneralVarMap<ResT>> bind(GeneralTriplePattern<ResT> pat, GeneralTriple<ResT> t)
 {
-	auto vm1 = bind(pat.sub, t.sub),
-		vm2 = bind(pat.pred, t.pred),
-		vm3 = bind(pat.obj, t.obj);
+	// not the most elegant way of doing it, but this function is called a lot
+	// so it is important to be efficient!
 
-	// if any component fails, overall operation has to fail
-	if (!vm1 || !vm2 || !vm3)
+	GeneralVarMap<ResT> result;
+
+	if (std::holds_alternative<Variable>(pat.sub))
+	{
+		// this will never fail
+		result[std::get<Variable>(pat.sub)] = t.sub;
+	}
+	else if (std::get<ResT>(pat.sub) != t.sub)
+		return std::nullopt;
+	if (std::holds_alternative<Variable>(pat.pred))
+	{
+		auto [iter, inserted] = result.insert(std::make_pair(std::get<Variable>(pat.pred), t.pred));
+		if (!inserted && iter->second != t.pred)
+			return std::nullopt;
+	}
+	else if (std::get<ResT>(pat.pred) != t.pred)
+		return std::nullopt;
+	if (std::holds_alternative<Variable>(pat.obj))
+	{
+		auto [iter, inserted] = result.insert(std::make_pair(std::get<Variable>(pat.obj), t.obj));
+		if (!inserted && iter->second != t.obj)
+			return std::nullopt;
+	}
+	else if (std::get<ResT>(pat.obj) != t.obj)
 		return std::nullopt;
 
-	// otherwise try merging them, WLOG merging into vm1
-	if (!merge(*vm1, *vm2) || !merge(*vm1, *vm3))
-		return std::nullopt;
-
-	return *vm1;
+	return result;
 }
 
 
