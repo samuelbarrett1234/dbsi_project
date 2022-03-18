@@ -38,7 +38,7 @@ Run `cmake ../dbsi_project`, followed by `make`.
 Both of these should work without errors.
 The executable is then available in the new folder `dbsi_project`.
 
-*Please note that this project requires C++17. CMake should already detect this.*
+**Please note that this project requires C++17. CMake should already detect this.**
 Also, note that `make` might issue warnings, but this is OK.
 
 ### Compilers Tested
