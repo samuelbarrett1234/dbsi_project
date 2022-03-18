@@ -110,6 +110,12 @@ enum class TriplePatternType
 };
 
 
+/*
+* Get a string reprsentation of a triple plan type.
+*/
+std::string trip_pat_type_str(TriplePatternType type);
+
+
 template<typename ResT>
 TriplePatternType pattern_type(const GeneralTriplePattern<ResT>& pattern)
 {
