@@ -1,4 +1,5 @@
 #include <sstream>
+#include "dbsi_assert.h"
 #include "dbsi_query.h"
 #include "dbsi_parse_helper.h"
 
@@ -46,13 +47,23 @@ std::variant<BadQuery, SelectQuery, CountQuery, LoadQuery, QuitQuery> parse_quer
 	}
 
 	// read bracket
-	in >> next_word;
-	if (next_word != "{")
+	char delimiter = 'x';
+	in >> std::ws >> delimiter >> std::ws;
+	if (delimiter != '{')
 		return BadQuery("Missing bracket after WHERE.");
 
 	std::optional<Term> maybe_term;
 	std::vector<TriplePattern> pattern;
-	while (next_word != "}")
+
+	if (!in)
+		return BadQuery("Missing WHERE clause after bracket.");
+
+	// note: the peek is to allow two things:
+	// (i) empty where clauses
+	// (ii) a triple pattern at the end of a where clause which ends in a full stop.
+	// this is basically needed because the final triple's full stop is optional.
+	// this while-loop check assumes `in` has skipped whitespace up to the next lexical item.
+	while (delimiter != '}' && in.peek() != '}')
 	{
 		TriplePattern t;
 
@@ -88,11 +99,20 @@ std::variant<BadQuery, SelectQuery, CountQuery, LoadQuery, QuitQuery> parse_quer
 
 		pattern.push_back(std::move(t));
 
-		in >> next_word;
+		in >> std::ws >> delimiter >> std::ws;
 
-		if (next_word != "}" && next_word != ".")
-			return BadQuery("Bad where-clause triple-pattern delimiter: " + next_word);
+		if (delimiter != '}' && delimiter != '.')
+			return BadQuery(std::string("Bad where-clause triple-pattern delimiter: ") + delimiter);
+
+		if (!in && delimiter != '}')
+			return BadQuery("Missing closing WHERE clause bracket.");
 	}
+
+	// if we only peeked at the closing bracket, make sure
+	// to read it, too!
+	if (delimiter != '}')
+		delimiter = in.get();
+	DBSI_CHECK_INVARIANT(delimiter == '}');
 
 	if (first_word == "SELECT")
 		return SelectQuery{ std::move(args), std::move(pattern) };
