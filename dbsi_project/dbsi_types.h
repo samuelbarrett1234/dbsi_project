@@ -104,6 +104,68 @@ enum class TripleOrder
 };
 
 
+enum class TriplePatternType
+{
+	VVV, VVO, VPV, SVV, VPO, SVO, SPV, SPO
+};
+
+
+template<typename ResT>
+TriplePatternType pattern_type(const GeneralTriplePattern<ResT>& pattern)
+{
+	if (std::holds_alternative<Variable>(pattern.sub))  // if subject variable
+	{
+		if (std::holds_alternative<Variable>(pattern.pred))  // if predicate variable
+		{
+			if (std::holds_alternative<Variable>(pattern.obj))  // if object variable
+			{
+				return TriplePatternType::VVV;
+			}
+			else  // if object known
+			{
+				return TriplePatternType::VVO;
+			}
+		}
+		else  // if predicate known
+		{
+			if (std::holds_alternative<Variable>(pattern.obj))  // if object variable
+			{
+				return TriplePatternType::VPV;
+			}
+			else  // if object known
+			{
+				return TriplePatternType::VPO;
+			}
+		}
+	}
+	else  // if subject known
+	{
+		if (std::holds_alternative<Variable>(pattern.pred))  // if predicate variable
+		{
+			if (std::holds_alternative<Variable>(pattern.obj))  // if object variable
+			{
+				return TriplePatternType::SVV;
+			}
+			else  // if object known
+			{
+				return TriplePatternType::SVO;
+			}
+		}
+		else  // if predicate known
+		{
+			if (std::holds_alternative<Variable>(pattern.obj))  // if object variable
+			{
+				return TriplePatternType::SPV;
+			}
+			else  // if object known
+			{
+				return TriplePatternType::SPO;
+			}
+		}
+	}
+}
+
+
 // works on Resources or Terms, via calling or via std::visit
 struct DbsiToStringVisitor
 {

@@ -250,89 +250,74 @@ std::pair<RDFIndex::IndexType, RDFIndex::EvaluationType> RDFIndex::plan_pattern(
 	RDFIndex::EvaluationType eval_type;
 
 	/*
-	* This nested set of if-statements basically implements
-	* the logic from the paper on index selection, and selecting
-	* how to traverse.
-	* There are 8 cases, =2*2*2, for whether or not each of the
-	* three elements of the pattern are variables or not.
+	* Pick index and evaluation method based on the pattern type
 	*/
-	if (std::holds_alternative<Variable>(pattern.sub))  // if subject variable
+	switch (pattern_type(pattern))
 	{
-		if (std::holds_alternative<Variable>(pattern.pred))  // if predicate variable
+	case TriplePatternType::VVV:
+		index_type = RDFIndex::IndexType::NONE;
+		eval_type = RDFIndex::EvaluationType::ALL;
+		break;
+
+	case TriplePatternType::VVO:
+		index_type = RDFIndex::IndexType::OBJ;
+		eval_type = RDFIndex::EvaluationType::OP;
+		break;
+
+	case TriplePatternType::VPV:
+		index_type = RDFIndex::IndexType::PRED;
+		eval_type = RDFIndex::EvaluationType::P;
+		break;
+
+	case TriplePatternType::VPO:
+		index_type = RDFIndex::IndexType::OP;
+		eval_type = RDFIndex::EvaluationType::OP;
+		break;
+
+	case TriplePatternType::SVV:
+		index_type = RDFIndex::IndexType::SUB;
+		eval_type = RDFIndex::EvaluationType::SP;
+		break;
+
+	case TriplePatternType::SVO:
+	{
+		// have to make a decision between subject and object
+		// based on index selectivity (see paper)
+		auto sub_iter = m_sub_index.find(std::get<CodedResource>(pattern.sub));
+		auto obj_iter = m_obj_index.find(std::get<CodedResource>(pattern.obj));
+		if (sub_iter == m_sub_index.end() || obj_iter == m_obj_index.end())
 		{
-			if (std::holds_alternative<Variable>(pattern.obj))  // if object variable
-			{
-				index_type = RDFIndex::IndexType::NONE;
-				eval_type = RDFIndex::EvaluationType::ALL;
-			}
-			else  // if object known
-			{
-				index_type = RDFIndex::IndexType::OBJ;
-				eval_type = RDFIndex::EvaluationType::OP;
-			}
+			// however obviously if either sub or obj do not
+			// exist then the query will return empty results.
+			// the cheapest way to guarantee this is the following:
+			index_type = RDFIndex::IndexType::NONE;
+			eval_type = RDFIndex::EvaluationType::NONE;
 		}
-		else  // if predicate known
+		else if (sub_iter->second.size < obj_iter->second.size)  //	`sub` more selective
 		{
-			if (std::holds_alternative<Variable>(pattern.obj))  // if object variable
-			{
-				index_type = RDFIndex::IndexType::PRED;
-				eval_type = RDFIndex::EvaluationType::P;
-			}
-			else  // if object known
-			{
-				index_type = RDFIndex::IndexType::OP;
-				eval_type = RDFIndex::EvaluationType::OP;
-			}
+			index_type = RDFIndex::IndexType::SUB;
+			eval_type = RDFIndex::EvaluationType::SP;
+		}
+		else  // `obj` more selective
+		{
+			index_type = RDFIndex::IndexType::OBJ;
+			eval_type = RDFIndex::EvaluationType::OP;
 		}
 	}
-	else  // if subject known
-	{
-		if (std::holds_alternative<Variable>(pattern.pred))  // if predicate variable
-		{
-			if (std::holds_alternative<Variable>(pattern.obj))  // if object variable
-			{
-				index_type = RDFIndex::IndexType::SUB;
-				eval_type = RDFIndex::EvaluationType::SP;
-			}
-			else  // if object known
-			{
-				// have to make a decision between subject and object
-				// based on index selectivity (see paper)
-				auto sub_iter = m_sub_index.find(std::get<CodedResource>(pattern.sub));
-				auto obj_iter = m_obj_index.find(std::get<CodedResource>(pattern.obj));
-				if (sub_iter == m_sub_index.end() || obj_iter == m_obj_index.end())
-				{
-					// however obviously if either sub or obj do not
-					// exist then the query will return empty results.
-					// the cheapest way to guarantee this is the following:
-					index_type = RDFIndex::IndexType::NONE;
-					eval_type = RDFIndex::EvaluationType::NONE;
-				}
-				else if (sub_iter->second.size < obj_iter->second.size)  //	`sub` more selective
-				{
-					index_type = RDFIndex::IndexType::SUB;
-					eval_type = RDFIndex::EvaluationType::SP;
-				}
-				else  // `obj` more selective
-				{
-					index_type = RDFIndex::IndexType::OBJ;
-					eval_type = RDFIndex::EvaluationType::OP;
-				}
-			}
-		}
-		else  // if predicate known
-		{
-			if (std::holds_alternative<Variable>(pattern.obj))  // if object variable
-			{
-				index_type = RDFIndex::IndexType::SP;
-				eval_type = RDFIndex::EvaluationType::SP;
-			}
-			else  // if object known
-			{
-				index_type = RDFIndex::IndexType::SPO;
-				eval_type = RDFIndex::EvaluationType::NONE;
-			}
-		}
+		break;
+
+	case TriplePatternType::SPV:
+		index_type = RDFIndex::IndexType::SP;
+		eval_type = RDFIndex::EvaluationType::SP;
+		break;
+
+	case TriplePatternType::SPO:
+		index_type = RDFIndex::IndexType::SPO;
+		eval_type = RDFIndex::EvaluationType::NONE;
+		break;
+
+	default:
+		DBSI_CHECK_POSTCOND(false);  // ???
 	}
 
 	return std::make_pair(index_type, eval_type);
