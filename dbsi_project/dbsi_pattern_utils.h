@@ -172,6 +172,43 @@ std::optional<GeneralVarMap<ResT>> bind(GeneralTriplePattern<ResT> pat, GeneralT
 }
 
 
+/*
+* Create a variable map from the keys present in the given
+* term or triple pattern, and map them to arbitrary values.
+*/
+template<typename ResT>
+GeneralVarMap<ResT> extract_map(GeneralTerm<ResT> t)
+{
+	struct ExtractionVisitor
+	{
+		GeneralVarMap<ResT> operator()(ResT r)
+		{
+			return GeneralVarMap<ResT>();
+		}
+		GeneralVarMap<ResT> operator()(Variable v)
+		{
+			GeneralVarMap<ResT> vm;
+			vm[v] = ResT();  // map to arbitrary value
+			return vm;
+		}
+	};
+	return std::visit(ExtractionVisitor(), std::move(t));
+}
+template<typename ResT>
+GeneralVarMap<ResT> extract_map(GeneralTriplePattern<ResT> pat)
+{
+	auto vm1 = extract_map(pat.sub),
+		vm2 = extract_map(pat.pred),
+		vm3 = extract_map(pat.obj);
+
+	// merge them, we don't care about the values
+	vm1.merge(std::move(vm2));
+	vm1.merge(std::move(vm3));
+
+	return vm1;
+}
+
+
 }  // namespace dbsi
 
 

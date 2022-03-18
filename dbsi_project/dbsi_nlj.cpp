@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <iterator>
 #include "dbsi_nlj.h"
 #include "dbsi_assert.h"
 #include "dbsi_rdf_index.h"
@@ -16,7 +18,7 @@ namespace joins
 * The ordering here is given by the ordering from the paper.
 * Lower scores are more selective.
 */
-int score_pattern(TriplePatternType type)
+constexpr int score_pattern(TriplePatternType type)
 {
 	switch (type)
 	{
@@ -36,39 +38,7 @@ int score_pattern(TriplePatternType type)
 		return 6;
 	case TriplePatternType::VVV:
 		return 7;
-	default:
-		DBSI_CHECK_PRECOND(false);
 	}
-}
-
-
-/*
-* Given a pattern, create a variable map which
-* includes all of the variables mentioned in `pat`,
-* but which map those variables to arbitrary values.
-*/
-CodedVarMap get_arbitrary_var_map(const CodedTriplePattern& pat)
-{
-	// keeps track of which variables have been bound,
-	// but doesn't care about what values they map to
-	struct CodedVarMapTracker
-	{
-		void operator()(const CodedResource&) {}  // do nothing
-		void operator()(const Variable& v)
-		{
-			// add variable name to `cvm`, it doesn't matter with what value
-			cvm[v] = 0;
-		}
-
-		CodedVarMap cvm;
-	};
-
-	CodedVarMapTracker tracker;
-	std::visit(tracker, pat.sub);
-	std::visit(tracker, pat.pred);
-	std::visit(tracker, pat.obj);
-
-	return tracker.cvm;
 }
 
 
@@ -244,7 +214,7 @@ void greedy_join_order_opt(std::vector<CodedTriplePattern>& patterns)
 		for (size_t i = cur_idx; i < patterns.size(); ++i)
 		{
 			// get the pattern's variable map, and its score after substitution
-			CodedVarMap cur_cvm = get_arbitrary_var_map(patterns[i]);
+			CodedVarMap cur_cvm = extract_map(patterns[i]);
 			const int cur_score = score_pattern(pattern_type(
 				substitute(cvm, patterns[i])));
 
@@ -291,6 +261,197 @@ void greedy_join_order_opt(std::vector<CodedTriplePattern>& patterns)
 		// merge CVMs
 		const bool ok = merge(cvm, best_cvm);
 		DBSI_CHECK_INVARIANT(ok);
+	}
+}
+
+
+/*
+* `adj_mat` : a vector of length N*N (for some N) such that element
+*             i + N * j equals true iff there is an edge from i->j
+*             where 0 <= i,j < N.
+* returns   : a matrix whose element i + N * j equals the length of
+*	          the shortest path from i to j, measured in number of
+*             edges, or static_cast<size_t>(-1) if there is no such
+*             path.
+* 
+* This is an instance of the Floyd-Warshall algorithm. Since it
+* is relatively standard, I will not explain it fully.
+*/
+std::vector<size_t> all_pairs_shortest_paths(const size_t N, std::vector<bool> adj_mat)
+{
+	DBSI_CHECK_PRECOND(N * N == adj_mat.size());
+	static const size_t bad_value = static_cast<size_t>(-1);
+
+	// dist[i + N * j] gives the shortest distance from i to j
+	// at the given iteration. -1 indicates invalid value.
+	std::vector<size_t> dist(adj_mat.size(), bad_value);
+
+	for (size_t i = 0; i * i < N * N; ++i)
+		dist[i + i * N] = 0;  // distance from i to i is 0
+	for (size_t k = 0; k < adj_mat.size(); ++k)
+		if (adj_mat[k])
+			dist[k] = 1;  // edge distances
+
+	// main Floyd-Warshall loop
+	for (size_t k = 0; k < N; ++k)
+		for (size_t i = 0; i < N; ++i)
+			for (size_t j = 0; j < N; ++j)
+				if (dist[i + N * j] > dist[i + N * k] + dist[k + N * j])
+					dist[i + N * j] = dist[i + N * k] + dist[k + N * j];
+
+	return dist;
+}
+
+
+/*
+* Returns true iff all keys in the lhs appear in the rhs.
+*/
+bool var_map_key_subset(const CodedVarMap& lhs, const CodedVarMap& rhs)
+{
+	auto iter1 = lhs.begin();
+	auto iter2 = rhs.begin();
+	while (iter1 != lhs.end() && iter2 != rhs.end())
+	{
+		if (iter1->first < iter2->first)
+			return false;
+		else if (iter1->first > iter2->first)
+			++iter2;
+		else
+		{
+			++iter1;
+			++iter2;
+		}
+	}
+	return true;
+}
+
+
+/*
+* Build the adjacency matrix for the patterns in the range
+* [begin, end) according to the criteria that:
+* T_i -> T_j iff
+* T_i and T_j do not have disjoint variable sets,
+* and the variable set of T_j is NOT a proper
+* subset of the variable set of T_i.
+*
+* The rationale for this is explained in the accompanying
+* report, but in short, this produces a graph whose
+* most `central' vertices are
+*/
+std::vector<bool> build_adj_mat(
+	const std::vector<CodedTriplePattern>::const_iterator begin,
+	const std::vector<CodedTriplePattern>::const_iterator end)
+{
+	// firstly, convert each coded triple pattern into
+	// a coded variable map (but not caring about which
+	// values are mapped to)
+	std::vector<CodedVarMap> maps;
+	std::transform(begin, end, std::back_inserter(maps), [](CodedTriplePattern pat)
+		{ return extract_map(pat); });
+
+	// now we're ready to compute the adjacencies
+	const size_t N = maps.size();
+	std::vector<bool> output(N * N, false);
+	for (size_t i = 0; i < N; ++i)
+	{
+		for (size_t j = 0; j < N; ++j)
+		{
+			output[i + N * j] = (
+				var_maps_disjoint(maps[i], maps[j])
+				&& !var_map_key_subset(maps[j], maps[i])
+				);
+		}
+	}
+	return output;
+}
+
+
+void smart_join_order_opt(std::vector<CodedTriplePattern>& patterns)
+{
+	// invariant: `patterns` and `conditioned_patterns` will
+	// maintain the same order, and the ith element of the latter
+	// will equal the ith element of the former after substituting
+	// all variables mentioned in the patterns in the range [0, cur_idx)
+	std::vector<CodedTriplePattern> conditioned_patterns = patterns;
+	const size_t N = patterns.size();
+	constexpr int best_possible_score = score_pattern(TriplePatternType::SPO);
+
+	for (size_t cur_idx = 0; cur_idx < N; ++cur_idx)
+	{
+		size_t candidate_idx = static_cast<size_t>(-1);
+
+		// firstly, try aggressively promote any patterns of SPO-type
+		// (while computing the scores; if we don't find any of good
+		// score then this will be a useful array later)
+		std::vector<int> scores(N, -1);
+		for (size_t i = cur_idx; i < N; ++i)
+		{
+			scores[i] = score_pattern(pattern_type(conditioned_patterns[i]));
+			if (scores[i] == best_possible_score)
+			{
+				// found one!
+				candidate_idx = i;
+				break;
+			}
+		}
+
+		// if that fails, pick a `central' pattern to promote.
+		if (candidate_idx == static_cast<size_t>(-1))
+		{
+			// the notion of centrality is determined by the average
+			// path length to other nodes, with ties broken by their
+			// type-score
+
+			const size_t N_remaining = N - cur_idx;
+			const auto shortest_paths = all_pairs_shortest_paths(N_remaining,
+				build_adj_mat(conditioned_patterns.begin() + cur_idx, conditioned_patterns.end()));
+			DBSI_CHECK_POSTCOND(shortest_paths.size() == N_remaining * N_remaining);
+
+			// <node, score> pairs
+			std::vector<std::pair<size_t, size_t>> centrality_scores(
+				N_remaining, std::make_pair(0, 0));
+			for (size_t k = 0; k < shortest_paths.size(); ++k)
+			{
+				const size_t j = k / N_remaining, i = k - j * N_remaining;
+				DBSI_CHECK_INVARIANT(k == i + j * N_remaining);
+				centrality_scores[i].first = i;
+
+				// we need to be careful about overflow here, because (size_t)(-1)
+				// denotes not-a-path!
+				if (shortest_paths[k] == static_cast<size_t>(-1)
+					|| centrality_scores[i].second == static_cast<size_t>(-1))
+					centrality_scores[i].second = static_cast<size_t>(-1);
+				else
+					centrality_scores[i].second += shortest_paths[k];
+			}
+
+			// sort and pick best vertices according to centrality
+			// score first, then tie-breaking by SPO-score if necessary
+			std::sort(centrality_scores.begin(), centrality_scores.end(),
+				[&scores](auto& left, auto& right)
+				{
+					return (left.second < right.second
+						&& left.second != static_cast<size_t>(-1)
+						&& right.second != static_cast<size_t>(-1)) ||
+						(left.second == right.second &&
+							scores[left.first] < scores[right.first]);
+				});
+
+			// now we have our candidate!
+			candidate_idx = centrality_scores[0].first;
+		}
+
+		// swap elements so our chosen one is at `cur_idx`
+		std::swap(patterns[cur_idx], patterns[candidate_idx]);
+		std::swap(conditioned_patterns[cur_idx], conditioned_patterns[candidate_idx]);
+		// now get th variables this triple pattern sets
+		const auto updating_map = extract_map(conditioned_patterns[cur_idx]);
+		// make the substitutions in the remaining triple patterns
+		for (size_t update_idx = cur_idx; update_idx < N; ++update_idx)
+		{
+			conditioned_patterns[update_idx] = substitute(
+				updating_map, conditioned_patterns[update_idx]);
+		}
 	}
 }
 
