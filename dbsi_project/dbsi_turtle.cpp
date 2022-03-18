@@ -2,6 +2,7 @@
 #include <list>
 #include "dbsi_turtle.h"
 #include "dbsi_assert.h"
+#include "dbsi_parse_helper.h"
 
 
 namespace dbsi
@@ -10,9 +11,6 @@ namespace dbsi
 
 /*
 * Key invariants here:
-* Between `start` and `next` calls, and before `read_resource` calls,
-* the stream is never left pointing to whitespace
-* (whitespace is always consumed until EOF or non-whitespace character)
 * Each triple, if it exists, is read before the call to `current`, and
 * the stream always points to the full stop at the end of the current
 * triple.
@@ -24,7 +22,8 @@ class TurtleTripleIterator :
 {
 public:
 	TurtleTripleIterator(std::istream& in) :
-		m_in(in)
+		m_in(in),
+		m_error(false)
 	{ }
 
 	void start() override
@@ -32,10 +31,12 @@ public:
 		// seek to beginning
 		m_in.seekg(0);
 
+		// reset error flag if necessary
+		m_error = false;
+
 		// if file is nonempty, read first line and store it
 		if (valid())
 		{
-			consume_whitespace();
 			read_triple();
 		}
 	}
@@ -61,7 +62,7 @@ public:
 
 	bool valid() const override
 	{
-		return (bool)m_in;
+		return (bool)m_in && !m_error;
 	}
 
 private:
@@ -69,89 +70,59 @@ private:
 	{
 		DBSI_CHECK_INVARIANT(valid());
 
-		m_current.sub = read_resource();
-
-		consume_whitespace();
-
-		m_current.pred = read_resource();
-
-		consume_whitespace();
-
-		m_current.obj = read_resource();
-
-		consume_whitespace();
-	}
-
-	Resource read_resource()
-	{
-		DBSI_CHECK_INVARIANT(valid());
-		
-		// figure out what the first (necessarily non-whitespace) character is
-		char c = m_in.get();
-		std::list<char> out;
-		out.push_back(c);
-
-		if (c == '<')  // IRI
+		// read subject
+		auto maybe_resource = parse_resource(m_in);
+		if (!maybe_resource)
 		{
-			while ((c = m_in.get()) != '>')
-			{
-				// file is corrupt if this fails
-				DBSI_CHECK_PRECOND((bool)m_in);
-
-				out.push_back(c);
-			}
-
-			out.push_back(c);
-
-			return IRI{ std::string(out.begin(), out.end()) };
+			m_error = true;
+			return;
 		}
-		else if (c == '"')  // literal
+		m_current.sub = *maybe_resource;
+
+		// read predicate
+		maybe_resource = parse_resource(m_in);
+		if (!maybe_resource)
 		{
-			while ((c = m_in.get()) != '"')
-			{
-				// file is corrupt if this fails
-				DBSI_CHECK_PRECOND((bool)m_in);
-
-				out.push_back(c);
-			}
-
-			out.push_back(c);
-
-			return Literal{ std::string(out.begin(), out.end()) };
+			m_error = true;
+			return;
 		}
-		else
+		m_current.pred = *maybe_resource;
+
+		// read object
+		maybe_resource = parse_resource(m_in);
+		if (!maybe_resource)
 		{
-			DBSI_CHECK_PRECOND(false);  // corrupt file
+			m_error = true;
+			return;
 		}
+		m_current.obj = *maybe_resource;
+
+		m_in >> std::ws;
 	}
 
 	void read_end()
 	{
 		DBSI_CHECK_INVARIANT(valid());
 
-		const char c = m_in.get();
-		// file is corrupt if this fails
-		DBSI_CHECK_PRECOND(c == '.');
-		
-		consume_whitespace();
-	}
+		m_in >> std::ws;
 
-	void consume_whitespace()
-	{
-		// consume as much whitespace as possible,
-		// but no more
-		auto last_pos = m_in.tellg();
-		while (m_in && std::isspace(m_in.get()))
+		const char c = m_in.get();
+
+		// file is corrupt if this fails
+		if (c != '.')
 		{
-			last_pos = m_in.tellg();
+			m_error = true;
+			return;
 		}
-		m_in.seekg(last_pos);
+
+		m_in >> std::ws;
 	}
 
 private:
 	// reference must remain valid while this iterator
 	// lives
 	std::istream& m_in;
+	bool m_error;
 	Triple m_current;
 };
 
