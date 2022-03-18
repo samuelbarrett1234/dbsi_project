@@ -1,0 +1,28 @@
+# Database Systems Implementation Project
+
+Candidate Number 1032514
+
+Hilary Term 2022
+
+## Project Structure
+
+Here is a summary of what is in each file in the `dbsi_project/` folder:
+- `dbsi_project.cpp` : The main application entrypoint. This is a good file to start with as it references the high-level interfaces of many other areas of the project.
+- `dbsi_types.h`, `dbsi_types.cpp` : definitions of types used throughout the project. Makes extensive use of C++17's `std::variant`.
+- `dbsi_assert.h` : definitions of different types of assertions, used throughout all function implementations to check, and document, correctness. These can be enabled or disabled in this file, but should be disabled for performance benchmarking.
+- `dbsi_dictionary.h`, `dbsi_dictionary.cpp`, `dbsi_dictionary_utils.h`, `dbsi_dictionary_utils.cpp` : contains the `Dictionary` class which implements various conversions to/from `Resource`s and `CodedResource`s.
+- `dbsi_iterator.h` : Provides the `IIterator` interface, used as the basis for all kinds of iterator in this project.
+- `dbsi_pattern_utils.h` : Functions to help deal with variable mappings.
+- `dbsi_turtle.h`, `dbsi_turtle.cpp` : Implementation of the mechanism to read Turtle files. Again, this is done using iterators.
+- `dbsi_rdf_index.h`, `dbsi_rdf_index.cpp` : Implementation of the RDF index, following the paper by Motik et al. Most of the work here is in defining an iterator class which automatically selects which index to use, to apply a given selection criterion.
+- `dbsi_rdf_index_helper.h` : This file's purpose is purely to 'construct' the types used to store the table and index in `dbsi_rdf_index.h`. This is nontrivial because, the way I wanted to implement it, requires self-referential types. To achieve this I used the _curiously recurring template pattern_.
+- `dbsi_query.h`, `dbsi_query.cpp` : Implementation of the query/command parser.
+- `dbsi_nlj.h`, `dbsi_nlj.cpp` : Implementation of nested loop join, as well as the greedy join optimisation algorithm.
+- `dbsi_parse_helper.h`, `dbsi_parse_helper.cpp` : Functions to help parse IRIs and Literals. Used in both query parsing and Turtle file loading. The function `parse_resource` is called millions of times in the loading process, so is performance critical.
+
+## Command Line Usage
+
+You can either invoke the executable with no arguments, which enters _interactive mode_, or you can instead use `-i` and `-f` to pass command input and command file input, respectively.
+For example, using noninteractive mode you can write:
+```./dbsi_project -i "LOAD family_guy.ttl" -i "SELECT ?X ?Z WHERE { ?X <hasAge> ?Y . ?Z <hasAge> ?Y . }"```
+and it will print the answers and terminate.
