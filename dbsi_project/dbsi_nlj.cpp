@@ -266,44 +266,6 @@ void greedy_join_order_opt(std::vector<CodedTriplePattern>& patterns)
 
 
 /*
-* `adj_mat` : a vector of length N*N (for some N) such that element
-*             i + N * j equals true iff there is an edge from i->j
-*             where 0 <= i,j < N.
-* returns   : a matrix whose element i + N * j equals the length of
-*	          the shortest path from i to j, measured in number of
-*             edges, or static_cast<size_t>(-1) if there is no such
-*             path.
-* 
-* This is an instance of the Floyd-Warshall algorithm. Since it
-* is relatively standard, I will not explain it fully.
-*/
-std::vector<size_t> all_pairs_shortest_paths(const size_t N, std::vector<bool> adj_mat)
-{
-	DBSI_CHECK_PRECOND(N * N == adj_mat.size());
-	static const size_t bad_value = static_cast<size_t>(-1);
-
-	// dist[i + N * j] gives the shortest distance from i to j
-	// at the given iteration. -1 indicates invalid value.
-	std::vector<size_t> dist(adj_mat.size(), bad_value);
-
-	for (size_t i = 0; i * i < N * N; ++i)
-		dist[i + i * N] = 0;  // distance from i to i is 0
-	for (size_t k = 0; k < adj_mat.size(); ++k)
-		if (adj_mat[k])
-			dist[k] = 1;  // edge distances
-
-	// main Floyd-Warshall loop
-	for (size_t k = 0; k < N; ++k)
-		for (size_t i = 0; i < N; ++i)
-			for (size_t j = 0; j < N; ++j)
-				if (dist[i + N * j] > dist[i + N * k] + dist[k + N * j])
-					dist[i + N * j] = dist[i + N * k] + dist[k + N * j];
-
-	return dist;
-}
-
-
-/*
 * Returns true iff all keys in the lhs appear in the rhs.
 */
 bool var_map_key_subset(const CodedVarMap& lhs, const CodedVarMap& rhs)
@@ -322,47 +284,7 @@ bool var_map_key_subset(const CodedVarMap& lhs, const CodedVarMap& rhs)
 			++iter2;
 		}
 	}
-	return true;
-}
-
-
-/*
-* Build the adjacency matrix for the patterns in the range
-* [begin, end) according to the criteria that:
-* T_i -> T_j iff
-* T_i and T_j do not have disjoint variable sets,
-* and the variable set of T_j is NOT a proper
-* subset of the variable set of T_i.
-*
-* The rationale for this is explained in the accompanying
-* report, but in short, this produces a graph whose
-* most `central' vertices are
-*/
-std::vector<bool> build_adj_mat(
-	const std::vector<CodedTriplePattern>::const_iterator begin,
-	const std::vector<CodedTriplePattern>::const_iterator end)
-{
-	// firstly, convert each coded triple pattern into
-	// a coded variable map (but not caring about which
-	// values are mapped to)
-	std::vector<CodedVarMap> maps;
-	std::transform(begin, end, std::back_inserter(maps), [](CodedTriplePattern pat)
-		{ return extract_map(pat); });
-
-	// now we're ready to compute the adjacencies
-	const size_t N = maps.size();
-	std::vector<bool> output(N * N, false);
-	for (size_t i = 0; i < N; ++i)
-	{
-		for (size_t j = 0; j < N; ++j)
-		{
-			output[i + N * j] = (
-				var_maps_disjoint(maps[i], maps[j])
-				&& !var_map_key_subset(maps[j], maps[i])
-				);
-		}
-	}
-	return output;
+	return (iter1 == lhs.end());
 }
 
 
@@ -379,6 +301,7 @@ void smart_join_order_opt(std::vector<CodedTriplePattern>& patterns)
 	for (size_t cur_idx = 0; cur_idx < N; ++cur_idx)
 	{
 		size_t candidate_idx = static_cast<size_t>(-1);
+		const size_t N_remaining = N - cur_idx;
 
 		// firstly, try aggressively promote any patterns of SPO-type
 		// (while computing the scores; if we don't find any of good
@@ -386,8 +309,9 @@ void smart_join_order_opt(std::vector<CodedTriplePattern>& patterns)
 		std::vector<int> scores(N, -1);
 		for (size_t i = cur_idx; i < N; ++i)
 		{
-			scores[i] = score_pattern(pattern_type(conditioned_patterns[i]));
-			if (scores[i] == best_possible_score)
+			const auto pat_type = pattern_type(conditioned_patterns[i]);
+			scores[i] = score_pattern(pat_type);
+			if (pat_type == TriplePatternType::SPO)
 			{
 				// found one!
 				candidate_idx = i;
@@ -395,50 +319,38 @@ void smart_join_order_opt(std::vector<CodedTriplePattern>& patterns)
 			}
 		}
 
-		// if that fails, pick a `central' pattern to promote.
+		// if that fails, pick a different pattern to promote.
 		if (candidate_idx == static_cast<size_t>(-1))
 		{
-			// the notion of centrality is determined by the average
-			// path length to other nodes, with ties broken by their
-			// type-score
-
-			const size_t N_remaining = N - cur_idx;
-			const auto shortest_paths = all_pairs_shortest_paths(N_remaining,
-				build_adj_mat(conditioned_patterns.begin() + cur_idx, conditioned_patterns.end()));
-			DBSI_CHECK_POSTCOND(shortest_paths.size() == N_remaining * N_remaining);
-
 			// <node, score> pairs
-			std::vector<std::pair<size_t, size_t>> centrality_scores(
+			std::vector<std::pair<size_t, size_t>> spo_scores(
 				N_remaining, std::make_pair(0, 0));
-			for (size_t k = 0; k < shortest_paths.size(); ++k)
+			for (size_t i = 0; i < N_remaining; ++i)
 			{
-				const size_t j = k / N_remaining, i = k - j * N_remaining;
-				DBSI_CHECK_INVARIANT(k == i + j * N_remaining);
-				centrality_scores[i].first = i;
-
-				// we need to be careful about overflow here, because (size_t)(-1)
-				// denotes not-a-path!
-				if (shortest_paths[k] == static_cast<size_t>(-1)
-					|| centrality_scores[i].second == static_cast<size_t>(-1))
-					centrality_scores[i].second = static_cast<size_t>(-1);
-				else
-					centrality_scores[i].second += shortest_paths[k];
+				spo_scores[i].first = i + cur_idx;
+				for (size_t j = 0; j < N_remaining; ++j)
+				{
+					if (i != j &&
+						var_map_key_subset(extract_map(conditioned_patterns[cur_idx + j]),
+						extract_map(conditioned_patterns[cur_idx + i])))
+						++spo_scores[i].second;
+				}
 			}
 
 			// sort and pick best vertices according to centrality
 			// score first, then tie-breaking by SPO-score if necessary
-			std::sort(centrality_scores.begin(), centrality_scores.end(),
+			std::sort(spo_scores.begin(), spo_scores.end(),
 				[&scores](auto& left, auto& right)
 				{
-					return (left.second < right.second
-						&& left.second != static_cast<size_t>(-1)
-						&& right.second != static_cast<size_t>(-1)) ||
+					DBSI_CHECK_INVARIANT(scores[left.first] >= 0);
+					DBSI_CHECK_INVARIANT(scores[right.first] >= 0);
+					return (left.second > right.second) ||
 						(left.second == right.second &&
 							scores[left.first] < scores[right.first]);
 				});
 
 			// now we have our candidate!
-			candidate_idx = centrality_scores[0].first;
+			candidate_idx = spo_scores[0].first;
 		}
 
 		// swap elements so our chosen one is at `cur_idx`
