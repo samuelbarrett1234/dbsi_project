@@ -258,9 +258,9 @@ struct hash<dbsi::GeneralTriple<ResT>>
 {
 	std::size_t operator()(const dbsi::GeneralTriple<ResT>& t) const
 	{
-		return (dbsi::my_hash(std::hash<ResT>()(t.sub)) * 37
-			+ dbsi::my_hash(std::hash<ResT>()(t.pred))) * 37
-			+ dbsi::my_hash(std::hash<ResT>()(t.obj));
+		return (std::hash<ResT>()(t.sub) * 37
+			+ std::hash<ResT>()(t.pred)) * 37
+			+ std::hash<ResT>()(t.obj);
 	}
 };
 
@@ -270,9 +270,9 @@ struct hash<dbsi::GeneralTriplePattern<ResT>>
 {
 	std::size_t operator()(const dbsi::GeneralTriplePattern<ResT>& t) const
 	{
-		return (std::hash<GeneralTerm<ResT>>()(t.sub) * 37
-			+ std::hash<GeneralTerm<ResT>>()(t.pred)) * 37
-			+ std::hash<GeneralTerm<ResT>>()(t.obj);
+		return (std::hash<dbsi::GeneralTerm<ResT>>()(t.sub) * 37
+			+ std::hash<dbsi::GeneralTerm<ResT>>()(t.pred)) * 37
+			+ std::hash<dbsi::GeneralTerm<ResT>>()(t.obj);
 	}
 };
 
