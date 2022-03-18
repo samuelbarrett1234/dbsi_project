@@ -239,14 +239,28 @@ struct hash<dbsi::Variable>
 };
 
 
+template<>
+struct hash<dbsi::GeneralTriple<dbsi::CodedResource>>
+{
+	std::size_t operator()(const dbsi::GeneralTriple<dbsi::CodedResource>& t) const
+	{
+		// calling `dbsi::my_hash` here helps in the case where ResT
+		// is just an integer, in which case the hash is the identity
+		// function, causing collisions
+		return ((t.sub << (2 * sizeof(dbsi::CodedResource) / 3))
+			^ (t.pred << (sizeof(dbsi::CodedResource) / 3)) ^ t.obj);
+	}
+};
+
+
 template <typename ResT>
 struct hash<dbsi::GeneralTriple<ResT>>
 {
 	std::size_t operator()(const dbsi::GeneralTriple<ResT>& t) const
 	{
-		return std::hash<ResT>()(t.sub)
-			+ 7 * std::hash<ResT>()(t.pred)
-			+ 11 * std::hash<ResT>()(t.obj);
+		return (dbsi::my_hash(std::hash<ResT>()(t.sub)) * 37
+			+ dbsi::my_hash(std::hash<ResT>()(t.pred))) * 37
+			+ dbsi::my_hash(std::hash<ResT>()(t.obj));
 	}
 };
 
@@ -256,9 +270,9 @@ struct hash<dbsi::GeneralTriplePattern<ResT>>
 {
 	std::size_t operator()(const dbsi::GeneralTriplePattern<ResT>& t) const
 	{
-		return std::hash<ResT>()(t.sub)
-			+ 13 * std::hash<ResT>()(t.pred)
-			+ 17 * std::hash<ResT>()(t.obj);
+		return (std::hash<GeneralTerm<ResT>>()(t.sub) * 37
+			+ std::hash<GeneralTerm<ResT>>()(t.pred)) * 37
+			+ std::hash<GeneralTerm<ResT>>()(t.obj);
 	}
 };
 
@@ -269,7 +283,7 @@ struct hash<pair<T1, T2>>
 	std::size_t operator()(const pair<T1, T2>& p) const
 	{
 		return std::hash<T1>()(p.first)
-			+ 19 * std::hash<T2>()(p.second);
+			+ 37 * std::hash<T2>()(p.second);
 	}
 };
 
