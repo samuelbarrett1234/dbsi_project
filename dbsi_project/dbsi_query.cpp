@@ -8,13 +8,16 @@ namespace dbsi
 {
 
 
-std::variant<BadQuery, SelectQuery, CountQuery, LoadQuery, QuitQuery> parse_query(std::istream& in)
+std::variant<BadQuery, SelectQuery, CountQuery, LoadQuery, QuitQuery, EmptyQuery> parse_query(std::istream& in)
 {
 	if (!in)
-		return BadQuery("Empty input.");
+		return EmptyQuery();
 
 	std::string first_word;
 	in >> first_word;
+
+	if (first_word.empty())
+		return EmptyQuery();
 
 	if (first_word == "QUIT")
 		return QuitQuery();

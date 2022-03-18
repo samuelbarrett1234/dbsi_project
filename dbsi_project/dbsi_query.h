@@ -44,14 +44,18 @@ struct LoadQuery
 struct QuitQuery {};
 
 
+struct EmptyQuery {};
+
+
 /*
 * Read a single query from the given input string, which
 * may contain zero, one, or multiple queries. In the case
-* of any error (or lack of a query), `BadQuery` is returned.
+* of any error `BadQuery` is returned. In case of no query
+* at all, `EmptyQuery` is returned.
 * In all other cases, the foremost query in the string is
 * read and returned.
 */
-std::variant<BadQuery, SelectQuery, CountQuery, LoadQuery, QuitQuery> parse_query(std::istream& in);
+std::variant<BadQuery, SelectQuery, CountQuery, LoadQuery, QuitQuery, EmptyQuery> parse_query(std::istream& in);
 
 
 }  // namespace dbsi

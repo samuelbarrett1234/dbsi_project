@@ -1,6 +1,7 @@
 ﻿#include <iostream>
 #include <fstream>
 #include <chrono>
+#include <sstream>
 #include <algorithm>
 #include "dbsi_dictionary.h"
 #include "dbsi_rdf_index.h"
@@ -25,6 +26,8 @@ public:
 	QueryApplication() :
 		m_done(false)
 	{ }
+
+	void operator()(const EmptyQuery&) {}
 
 	void operator()(const BadQuery& e)
 	{
@@ -163,9 +166,63 @@ private:
 };
 
 
-int main()
+int main(int argc, char* argv[])
 {
+	if (argc == 2)
+	{
+		if (std::string(argv[1]) != "-h")
+			std::cerr << "Invalid option " << argv[1]
+			<< ", showing help:" << std::endl;
+
+		std::cout << "-h : print help." << std::endl;
+		std::cout << "-i query : execute query/queries." << std::endl;
+		std::cout << "-f filename : execute query/queries from file." << std::endl;
+		return 0;
+	}
+
+	if (argc % 2 == 0)
+	{
+		std::cerr << "Invalid number of command line arguments given." << std::endl;
+		return 1;
+	}
+	const int num_commands = (argc - 1) / 2;
+
 	QueryApplication app;
+
+	// start by parsing any command line arguments
+	for (int i = 0; i < num_commands && !app.done(); ++i)
+	{
+		std::string cmd = argv[2 * i + 1];
+		std::string arg = argv[2 * i + 2];
+		if (cmd == "-i")
+		{
+			std::stringstream cmd_in(arg);
+			while (!app.done() && cmd_in)
+			{
+				std::visit(app, parse_query(cmd_in));
+			}
+		}
+		else if (cmd == "-f")
+		{
+			std::ifstream cmd_in(arg, std::ios::binary);
+			if (!cmd_in)
+			{
+				std::cerr << "Cannot open file '" << arg << "'." << std::endl;
+				return 1;
+			}
+			while (!app.done() && cmd_in)
+			{
+				std::visit(app, parse_query(cmd_in));
+			}
+		}
+		else
+		{
+			std::cerr << "Bad command '" << cmd
+				<< "', must either be '-i' or '-f'."
+				<< std::endl;
+			return 1;
+		}
+	}
 
 	while (!app.done())
 	{
