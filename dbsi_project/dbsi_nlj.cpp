@@ -239,7 +239,7 @@ void greedy_join_order_opt(std::vector<CodedTriplePattern>& patterns)
 		// pattern conditional on the maps from patterns in range
 		// [0, cur_idx).
 		size_t best_idx = bad_idx;
-		int best_score = -1;  // or any number < 0
+		int best_score = 10;  // or any number > 7
 		CodedVarMap best_cvm;
 		for (size_t i = cur_idx; i < patterns.size(); ++i)
 		{
@@ -267,7 +267,7 @@ void greedy_join_order_opt(std::vector<CodedTriplePattern>& patterns)
 			* to be joined. WLOG we may pick the one at `cur_idx`. This
 			* case is handled by the `else if`.
 			*/
-			if (cur_score > best_score &&
+			if (cur_score < best_score &&
 				(cur_cvm.empty() || !var_maps_disjoint(cvm, cur_cvm)))
 			{
 				best_idx = i;
