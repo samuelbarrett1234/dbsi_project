@@ -226,12 +226,6 @@ void greedy_join_order_opt(std::vector<CodedTriplePattern>& patterns)
 			* to share a variable in common, or the new CVM has no variables
 			* (in which case it is just an index lookup).
 			* 
-			* Note: here I am requiring `cur_score > best_score`, rather
-			* than `cur_score < best_score` as is given in the exam question
-			* paper, because my nested loop join implementation does things
-			* the other way around. Experimentation with < versus > confirms
-			* my suspicions, because as is, it is MUCH faster.
-			* 
 			* Note: in the special case where there are no unavoidable
 			* cross products, we have to arbitrarily pick a next pattern
 			* to be joined. WLOG we may pick the one at `cur_idx`. This
