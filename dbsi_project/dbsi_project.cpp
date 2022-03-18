@@ -221,7 +221,7 @@ private:
 				[this](const TriplePattern& pat) { return encode(m_dict, pat); });
 
 			// join optimisation!
-			joins::smart_join_order_opt(coded_pats);
+			joins::greedy_join_order_opt(coded_pats);
 
 			if (m_log_plan_types)
 			{

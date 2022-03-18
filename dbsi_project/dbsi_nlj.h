@@ -53,18 +53,6 @@ void greedy_join_order_opt(
 );
 
 
-/*
-* Same API as `greedy_join_order_opt`, and inspired by the algorithm
-* in the paper referenced by that function, however is my own idea.
-* It solves the drawback of the greedy method that *it is sometimes
-* better to evaluate less-selective queries, if they bind many variables
-* in other triple patterns*!
-*/
-void smart_join_order_opt(
-	std::vector<CodedTriplePattern>& patterns
-);
-
-
 }  // namespace joins
 }  // namespace dbsi
 
