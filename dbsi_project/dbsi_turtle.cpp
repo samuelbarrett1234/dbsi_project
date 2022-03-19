@@ -1,5 +1,6 @@
 #include <cctype>
 #include <list>
+#include <iostream>
 #include "dbsi_turtle.h"
 #include "dbsi_assert.h"
 #include "dbsi_parse_helper.h"
@@ -74,7 +75,7 @@ private:
 		auto maybe_resource = parse_resource(m_in);
 		if (!maybe_resource)
 		{
-			m_error = true;
+			set_error("subject");
 			return;
 		}
 		m_current.sub = *maybe_resource;
@@ -83,7 +84,7 @@ private:
 		maybe_resource = parse_resource(m_in);
 		if (!maybe_resource)
 		{
-			m_error = true;
+			set_error("predicate");
 			return;
 		}
 		m_current.pred = *maybe_resource;
@@ -92,7 +93,7 @@ private:
 		maybe_resource = parse_resource(m_in);
 		if (!maybe_resource)
 		{
-			m_error = true;
+			set_error("object");
 			return;
 		}
 		m_current.obj = *maybe_resource;
@@ -111,11 +112,21 @@ private:
 		// file is corrupt if this fails
 		if (c != '.')
 		{
-			m_error = true;
+			set_error("triple delimiter");
 			return;
 		}
 
 		m_in >> std::ws;
+	}
+
+	void set_error(const char* what_is_invalid)
+	{
+		m_error = true;
+		std::cerr << "Encountered an invalid "
+			<< what_is_invalid
+			<< " while loading. Stopping parsing the file. Current file stream position is "
+			<< m_in.tellg()
+			<< std::endl;
 	}
 
 private:
