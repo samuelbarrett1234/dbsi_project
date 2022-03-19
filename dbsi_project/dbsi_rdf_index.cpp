@@ -1,6 +1,9 @@
 #include "dbsi_rdf_index.h"
 #include "dbsi_pattern_utils.h"
 #include "dbsi_assert.h"
+#ifdef DBSI_CHECKING_INVARIANTS
+#include <unordered_set>  // used for checking integrity in debug mode
+#endif
 
 
 namespace dbsi
@@ -97,19 +100,42 @@ void RDFIndex::add(CodedTriple t)
 	m_triples.emplace_back(
 		t, sp_source, op_source,
 		m_pred_index[t.pred].offset
-		);
+	);
 
-	// add to single term indices
-	m_sub_index[t.sub].offset = new_offset;
-	++m_sub_index[t.sub].size;
+	/* Now, we don't *always* want to set this new triple to
+	* be the 'front' of the sub/obj index. We ONLY want to do
+	* this when the triple introduces a new value of `pred`,
+	* or if the triple agrees with the value of `pred`
+	* currently being pointed to. It is all about making sure
+	* we update the offset iff the new triple has a `pred`
+	* from the group at the front of the linked list.
+	*/
+	if (sp_iter == m_sp_index.cend() ||
+		m_triples[m_sub_index[t.sub].offset].t.pred == t.pred)
+		m_sub_index[t.sub].offset = new_offset;
+	if (op_iter == m_op_index.cend() ||
+		m_triples[m_obj_index[t.obj].offset].t.pred == t.pred)
+		m_obj_index[t.obj].offset = new_offset;
+
+	// always add to the `pred` index as this case
+	// is slightly simpler
 	m_pred_index[t.pred].offset = new_offset;
+
+	// always increment sizes in the single term indices
+	++m_sub_index[t.sub].size;
 	++m_pred_index[t.pred].size;
-	m_obj_index[t.obj].offset = new_offset;
 	++m_obj_index[t.obj].size;
 
 	m_sp_index[std::make_pair(t.sub, t.pred)] = new_offset;
 	m_op_index[std::make_pair(t.obj, t.pred)] = new_offset;
 	m_triple_index[t] = new_offset;
+
+#ifdef DBSI_CHECKING_INVARIANTS
+	// in debug mode, check integrity every 100 triples added.
+	// this check is expensive so don't do it every time.
+	if (m_triples.size() % 5000 == 0)
+		check_integrity();
+#endif  // DBSI_CHECKING_INVARIANTS
 }
 
 
@@ -178,7 +204,7 @@ std::unique_ptr<ICodedVarMapIterator> RDFIndex::evaluate(CodedTriplePattern patt
 			auto iter = m_op_index.find(std::make_pair(
 				std::get<CodedResource>(pattern.obj),
 				std::get<CodedResource>(pattern.pred)));
-			if(iter != m_op_index.end())
+			if (iter != m_op_index.end())
 				start_index = iter->second;
 			// else no triple exists
 		}
@@ -304,7 +330,7 @@ std::pair<RDFIndex::IndexType, RDFIndex::EvaluationType> RDFIndex::plan_pattern(
 			eval_type = RDFIndex::EvaluationType::OP;
 		}
 	}
-		break;
+	break;
 
 	case TriplePatternType::SPV:
 		index_type = RDFIndex::IndexType::SP;
@@ -322,6 +348,230 @@ std::pair<RDFIndex::IndexType, RDFIndex::EvaluationType> RDFIndex::plan_pattern(
 
 	return std::make_pair(index_type, eval_type);
 }
+
+
+#ifdef DBSI_CHECKING_INVARIANTS
+
+
+void RDFIndex::check_integrity()
+{
+	using rdf_idx_helper::TABLE_END;
+	rdf_idx_helper::TripleRowVisitor get_row;
+
+	// check the triple index
+	DBSI_CHECK_INVARIANT(m_triples.size() == m_triple_index.size());
+	for (const auto& kv : m_triple_index)
+		DBSI_CHECK_INVARIANT(m_triples[kv.second].t == kv.first);
+
+	// check the linked list pointers
+	for (size_t i = 0; i < m_triples.size(); ++i)
+	{
+		const size_t n_sp = std::visit(get_row, m_triples[i].n_sp),
+			n_op = std::visit(get_row, m_triples[i].n_op);
+
+		// check the linked list pointers have the guarantees
+		// of the same sub/pred/obj respectively
+		DBSI_CHECK_INVARIANT(n_sp == TABLE_END ||
+			m_triples[n_sp].t.sub == m_triples[i].t.sub);
+		DBSI_CHECK_INVARIANT(m_triples[i].n_p == TABLE_END ||
+			m_triples[m_triples[i].n_p].t.pred == m_triples[i].t.pred);
+		DBSI_CHECK_INVARIANT(n_op == TABLE_END ||
+			m_triples[n_op].t.obj == m_triples[i].t.obj);
+	}
+
+	// check that the pair indices point to the first of a linked
+	// list which (i) terminates, and (ii) holds only the correct
+	// values, and (iii) contains ALL of the right values
+	for (const auto& kv : m_sp_index)
+	{
+		const auto [sub, pred] = kv.first;
+
+		std::unordered_set<size_t> idxs_found;
+
+		// `tab_idx` is the linked list pointer we are following.
+		// `i` is only here to ensure termination, and isn't strictly
+		// necessary.
+		size_t tab_idx = kv.second;
+		idxs_found.insert(tab_idx);
+		for (size_t i = 0; i < m_triples.size(); ++i)
+		{
+			DBSI_CHECK_INVARIANT(m_triples[tab_idx].t.sub == sub);
+			DBSI_CHECK_INVARIANT(m_triples[tab_idx].t.pred == pred);
+
+			if (!std::holds_alternative<size_t>(m_triples[tab_idx].n_sp))
+				break;  // changing to a different `pred` group
+			else
+				tab_idx = std::get<size_t>(m_triples[tab_idx].n_sp);
+
+			if (tab_idx == TABLE_END)
+				break;
+
+			// check we've not found a linked-list loop!
+			DBSI_CHECK_INVARIANT(idxs_found.find(tab_idx) == idxs_found.end());
+			idxs_found.insert(tab_idx);
+		}
+
+		// now do a full table scan to make sure we got the precise set
+		// of matching triples
+		for (size_t i = 0; i < m_triples.size(); ++i)
+		{
+			if (m_triples[i].t.sub == sub && m_triples[i].t.pred == pred)
+				DBSI_CHECK_INVARIANT(idxs_found.find(i) != idxs_found.end());
+		}
+	}
+	// same as for above but for OP rather than SP
+	for (const auto& kv : m_op_index)
+	{
+		const auto [obj, pred] = kv.first;
+
+		std::unordered_set<size_t> idxs_found;
+
+		// `tab_idx` is the linked list pointer we are following.
+		// `i` is only here to ensure termination, and isn't strictly
+		// necessary.
+		size_t tab_idx = kv.second;
+		idxs_found.insert(tab_idx);
+		for (size_t i = 0; i < m_triples.size(); ++i)
+		{
+			DBSI_CHECK_INVARIANT(m_triples[tab_idx].t.obj == obj);
+			DBSI_CHECK_INVARIANT(m_triples[tab_idx].t.pred == pred);
+
+			if (!std::holds_alternative<size_t>(m_triples[tab_idx].n_op))
+				break;  // changing to a different `pred` group
+			else
+				tab_idx = std::get<size_t>(m_triples[tab_idx].n_op);
+
+			if (tab_idx == TABLE_END)
+				break;
+
+			// check we've not found a linked-list loop!
+			DBSI_CHECK_INVARIANT(idxs_found.find(tab_idx) == idxs_found.end());
+			idxs_found.insert(tab_idx);
+		}
+
+		// now do a full table scan to make sure we got the precise set
+		// of matching triples
+		for (size_t i = 0; i < m_triples.size(); ++i)
+		{
+			if (m_triples[i].t.obj == obj && m_triples[i].t.pred == pred)
+				DBSI_CHECK_INVARIANT(idxs_found.find(i) != idxs_found.end());
+		}
+	}
+
+	// check that the single indices point to the first of a linked
+	// list which (i) terminates, and (ii) holds only the correct
+	// values, and (iii) contains ALL of the right values
+	for (const auto& kv : m_sub_index)
+	{
+		std::unordered_set<size_t> idxs_found;
+
+		// `tab_idx` is the linked list pointer we are following.
+		// `i` is only here to ensure termination, and isn't strictly
+		// necessary.
+		size_t tab_idx = kv.second.offset;
+		idxs_found.insert(tab_idx);
+		for (size_t i = 0; i < m_triples.size(); ++i)
+		{
+			DBSI_CHECK_INVARIANT(m_triples[tab_idx].t.sub == kv.first);
+
+			tab_idx = std::visit(get_row, m_triples[tab_idx].n_sp);
+
+			if (tab_idx == TABLE_END)
+				break;
+
+			// check we've not found a linked-list loop!
+			DBSI_CHECK_INVARIANT(idxs_found.find(tab_idx) == idxs_found.end());
+			idxs_found.insert(tab_idx);
+		}
+
+		// now do a full table scan to make sure we got the precise set
+		// of matching triples
+		for (size_t i = 0; i < m_triples.size(); ++i)
+		{
+			if (m_triples[i].t.sub == kv.first)
+				DBSI_CHECK_INVARIANT(idxs_found.find(i) != idxs_found.end());
+		}
+
+		DBSI_CHECK_INVARIANT(idxs_found.size() == kv.second.size);
+	}
+	// same for `obj`
+	for (const auto& kv : m_obj_index)
+	{
+		std::unordered_set<size_t> idxs_found;
+
+		// `tab_idx` is the linked list pointer we are following.
+		// `i` is only here to ensure termination, and isn't strictly
+		// necessary.
+		size_t tab_idx = kv.second.offset;
+		idxs_found.insert(tab_idx);
+		for (size_t i = 0; i < m_triples.size(); ++i)
+		{
+			DBSI_CHECK_INVARIANT(m_triples[tab_idx].t.obj == kv.first);
+
+			tab_idx = std::visit(get_row, m_triples[tab_idx].n_op);
+
+			if (tab_idx == TABLE_END)
+				break;
+
+			// check we've not found a linked-list loop!
+			DBSI_CHECK_INVARIANT(idxs_found.find(tab_idx) == idxs_found.end());
+			idxs_found.insert(tab_idx);
+		}
+
+		// now do a full table scan to make sure we got the precise set
+		// of matching triples
+		for (size_t i = 0; i < m_triples.size(); ++i)
+		{
+			if (m_triples[i].t.obj == kv.first)
+				DBSI_CHECK_INVARIANT(idxs_found.find(i) != idxs_found.end());
+		}
+
+		DBSI_CHECK_INVARIANT(idxs_found.size() == kv.second.size);
+	}
+	// and finally, something similar but slightly simpler for `pred`
+	for (const auto& kv : m_pred_index)
+	{
+		std::unordered_set<size_t> idxs_found;
+
+		// `tab_idx` is the linked list pointer we are following.
+		// `i` is only here to ensure termination, and isn't strictly
+		// necessary.
+		size_t tab_idx = kv.second.offset;
+		idxs_found.insert(tab_idx);
+		for (size_t i = 0; i < m_triples.size(); ++i)
+		{
+			DBSI_CHECK_INVARIANT(m_triples[tab_idx].t.pred == kv.first);
+
+			tab_idx = m_triples[tab_idx].n_p;
+
+			if (tab_idx == TABLE_END)
+				break;
+
+			// check we've not found a linked-list loop!
+			DBSI_CHECK_INVARIANT(idxs_found.find(tab_idx) == idxs_found.end());
+			idxs_found.insert(tab_idx);
+		}
+
+		DBSI_CHECK_INVARIANT(idxs_found.size() == kv.second.size);
+
+		// now do a full table scan to make sure we got the precise set
+		// of matching triples
+		for (size_t i = 0; i < m_triples.size(); ++i)
+		{
+			if (m_triples[i].t.pred == kv.first)
+				DBSI_CHECK_INVARIANT(idxs_found.find(i) != idxs_found.end());
+		}
+	}
+}
+
+
+#else
+
+
+void RDFIndex::check_integrity() { /* no-op */ }
+
+
+#endif  // DBSI_CHECKING_INVARIANTS
 
 
 RDFIndex::IndexIterator::IndexIterator(

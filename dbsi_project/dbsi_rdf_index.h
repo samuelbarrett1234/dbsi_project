@@ -108,6 +108,16 @@ private:
 	*/
 	std::pair<RDFIndex::IndexType, EvaluationType> plan_pattern(CodedTriplePattern pattern) const;
 
+	/*
+	* This function will test whether the RDF index satisfies
+	* its invariants, in particular that all of the indices
+	* are correct and that the pointers in the table form a
+	* correct linked list.
+	* This function is a no-op if DBSI_CHECKING_INVARIANTS is
+	* not defined in `dbsi_assert.h`.
+	*/
+	void check_integrity();
+
 private:
 	rdf_idx_helper::Table m_triples;
 	rdf_idx_helper::SingleIndex m_sub_index, m_pred_index, m_obj_index;
