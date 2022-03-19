@@ -49,6 +49,9 @@ std::variant<BadQuery, SelectQuery, CountQuery, LoadQuery, QuitQuery, EmptyQuery
 		in >> next_word;
 	}
 
+	if (next_word != "WHERE")
+		return BadQuery("Missing WHERE clause.");
+
 	// read bracket
 	char delimiter = 'x';
 	in >> std::ws >> delimiter >> std::ws;
@@ -104,11 +107,12 @@ std::variant<BadQuery, SelectQuery, CountQuery, LoadQuery, QuitQuery, EmptyQuery
 
 		in >> std::ws >> delimiter >> std::ws;
 
+		if (!in && delimiter != '}')
+			return BadQuery("Missing closing WHERE clause bracket.");
+
 		if (delimiter != '}' && delimiter != '.')
 			return BadQuery(std::string("Bad where-clause triple-pattern delimiter: ") + delimiter);
 
-		if (!in && delimiter != '}')
-			return BadQuery("Missing closing WHERE clause bracket.");
 	}
 
 	// if we only peeked at the closing bracket, make sure
