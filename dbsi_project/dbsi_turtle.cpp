@@ -25,7 +25,9 @@ public:
 	TurtleTripleIterator(std::istream& in) :
 		m_in(in),
 		m_error(false)
-	{ }
+	{
+		m_in >> std::noskipws;
+	}
 
 	void start() override
 	{
@@ -71,6 +73,10 @@ private:
 	{
 		DBSI_CHECK_INVARIANT(valid());
 
+		m_in >> std::ws;
+		if (!m_in)
+			return;  // EOF, so don't carry on, but this is not an error
+
 		// read subject
 		auto maybe_resource = parse_resource(m_in);
 		if (!maybe_resource)
@@ -97,8 +103,6 @@ private:
 			return;
 		}
 		m_current.obj = *maybe_resource;
-
-		m_in >> std::ws;
 	}
 
 	void read_end()
@@ -115,8 +119,6 @@ private:
 			set_error("triple delimiter");
 			return;
 		}
-
-		m_in >> std::ws;
 	}
 
 	void set_error(const char* what_is_invalid)
