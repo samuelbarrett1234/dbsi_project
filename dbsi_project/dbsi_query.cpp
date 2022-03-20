@@ -10,7 +10,7 @@ namespace dbsi
 
 std::variant<BadQuery, SelectQuery, CountQuery, LoadQuery, QuitQuery, EmptyQuery> parse_query(std::istream& in)
 {
-	if (!in)
+	if (!in.good())
 		return EmptyQuery();
 
 	std::string first_word;
@@ -22,14 +22,10 @@ std::variant<BadQuery, SelectQuery, CountQuery, LoadQuery, QuitQuery, EmptyQuery
 	if (first_word == "QUIT")
 		return QuitQuery();
 
-	// skip any whitespace after the command,
-	// because we expect there to be more
-	in >> std::ws;
-
 	if (first_word == "LOAD")
 	{
 		LoadQuery lq;
-		std::getline(in, lq.filename);
+		std::getline(in >> std::ws, lq.filename);
 		return lq;
 	}
 
@@ -40,7 +36,7 @@ std::variant<BadQuery, SelectQuery, CountQuery, LoadQuery, QuitQuery, EmptyQuery
 	std::vector<Variable> args;
 	std::string next_word;
 	in >> next_word;
-	while (next_word != "WHERE" && (bool)in)
+	while (next_word != "WHERE" && in.good())
 	{
 		if (next_word[0] != '?')
 			return BadQuery("Variables must start with question marks, but yours is " + next_word);
@@ -54,7 +50,7 @@ std::variant<BadQuery, SelectQuery, CountQuery, LoadQuery, QuitQuery, EmptyQuery
 
 	// read bracket
 	char delimiter = 'x';
-	in >> std::ws >> delimiter >> std::ws;
+	in >> delimiter;
 	if (delimiter != '{')
 		return BadQuery("Missing bracket after WHERE.");
 
@@ -105,14 +101,15 @@ std::variant<BadQuery, SelectQuery, CountQuery, LoadQuery, QuitQuery, EmptyQuery
 
 		pattern.push_back(std::move(t));
 
-		in >> std::ws >> delimiter >> std::ws;
-
-		if (!in && delimiter != '}')
-			return BadQuery("Missing closing WHERE clause bracket.");
+		in >> delimiter;
 
 		if (delimiter != '}' && delimiter != '.')
 			return BadQuery(std::string("Bad where-clause triple-pattern delimiter: ") + delimiter);
 
+		if (!in.good() && delimiter != '}')
+			return BadQuery("Missing closing WHERE clause bracket.");
+		else if (delimiter != '}')
+			in >> std::ws;  // necessary to prevent interactive mode hanging after end of command
 	}
 
 	// if we only peeked at the closing bracket, make sure

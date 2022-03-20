@@ -66,7 +66,7 @@ public:
 
 	bool valid() const override
 	{
-		return !m_error && !m_eof && (bool)m_in;
+		return !m_error && !m_eof && m_in.good();
 	}
 
 private:
@@ -80,7 +80,7 @@ private:
 		char c;
 		while (m_in && std::isspace(c = m_in.peek()))
 			m_in.get();
-		if (!m_in || c == -1 /* EOF */)
+		if (c == -1 /* EOF */ || !m_in.good())
 		{
 			m_eof = true;
 			return;

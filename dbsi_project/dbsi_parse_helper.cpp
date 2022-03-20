@@ -35,7 +35,7 @@ std::optional<Resource> parse_resource(std::istream& in)
 	const char end_char = (start_char == '<') ? '>' : '"';
 	char next_char;
 
-	while (in && (next_char = in.get()) != end_char)
+	while (in.good() && (next_char = in.get()) != end_char)
 	{
 		str.push_back(next_char);
 	}
