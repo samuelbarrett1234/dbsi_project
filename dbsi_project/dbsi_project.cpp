@@ -317,7 +317,7 @@ int main(int argc, char* argv[])
 			if (cmd == "-i")
 			{
 				std::stringstream cmd_in(arg);
-				while (!app.done() && cmd_in)
+				while (!app.done() && cmd_in.good())
 				{
 					std::visit(app, parse_query(cmd_in));
 				}
