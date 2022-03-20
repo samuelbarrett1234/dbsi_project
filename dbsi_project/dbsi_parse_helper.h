@@ -12,6 +12,16 @@ namespace dbsi
 
 
 /*
+* Skips all current whitespace in the stream `in`,
+* and outputs the first non-whitespace character
+* to `out_c` if it exists (and returns true), or
+* returns false if EOF happened earlier. In either
+* case, `out_c` has the possibility of being modified.
+*/
+bool next_nonws_char(char& out_c, std::istream& in);
+
+
+/*
 * Try to parse a resource from the given input stream.
 * If bad syntax, return std::nullopt.
 * A sufficient condition for syntax to be bad is that:

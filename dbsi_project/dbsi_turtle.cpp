@@ -24,9 +24,9 @@ class TurtleTripleIterator :
 public:
 	TurtleTripleIterator(std::istream& in) :
 		m_in(in),
-		m_error(false)
+		m_error(false),
+		m_eof(false)
 	{
-		m_in >> std::noskipws;
 	}
 
 	void start() override
@@ -34,8 +34,9 @@ public:
 		// seek to beginning
 		m_in.seekg(0);
 
-		// reset error flag if necessary
+		// reset error/EOF flags if necessary
 		m_error = false;
+		m_eof = false;
 
 		// if file is nonempty, read first line and store it
 		if (valid())
@@ -65,7 +66,7 @@ public:
 
 	bool valid() const override
 	{
-		return (bool)m_in && !m_error;
+		return !m_error && !m_eof && (bool)m_in;
 	}
 
 private:
@@ -73,9 +74,17 @@ private:
 	{
 		DBSI_CHECK_INVARIANT(valid());
 
-		m_in >> std::ws;
-		if (!m_in)
-			return;  // EOF, so don't carry on, but this is not an error
+		// consume whitespace, and check whether
+		// EOF is found BEFORE we start trying to
+		// read the next triple
+		char c;
+		while (m_in && std::isspace(c = m_in.peek()))
+			m_in.get();
+		if (!m_in || c == -1 /* EOF */)
+		{
+			m_eof = true;
+			return;
+		}
 
 		// read subject
 		auto maybe_resource = parse_resource(m_in);
@@ -109,12 +118,9 @@ private:
 	{
 		DBSI_CHECK_INVARIANT(valid());
 
-		m_in >> std::ws;
-
-		const char c = m_in.get();
-
+		char c;
 		// file is corrupt if this fails
-		if (c != '.')
+		if (!next_nonws_char(c, m_in) || c != '.')
 		{
 			set_error("triple delimiter");
 			return;
@@ -135,7 +141,7 @@ private:
 	// reference must remain valid while this iterator
 	// lives
 	std::istream& m_in;
-	bool m_error;
+	bool m_error, m_eof;
 	Triple m_current;
 };
 
