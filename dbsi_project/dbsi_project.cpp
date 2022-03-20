@@ -77,9 +77,10 @@ private:
 class QueryApplication
 {
 public:
-	QueryApplication(bool log_plan_types) :
+	QueryApplication(bool log_plan_types, bool profiling_mode) :
 		m_done(false),
-		m_log_plan_types(log_plan_types)
+		m_log_plan_types(log_plan_types),
+		m_profiling_mode(profiling_mode)
 	{ }
 
 	void operator()(const EmptyQuery&) {}
@@ -108,8 +109,6 @@ public:
 			return;
 		}
 
-		// TODO: what does the file parser do if the file is corrupted?
-
 		auto file_iter = autoencode(m_dict, create_turtle_file_parser(file));
 
 		size_t add_count = 0;
@@ -123,9 +122,18 @@ public:
 
 		const auto end_time = std::chrono::system_clock::now();
 
-		std::cout << "Loaded " << add_count << " triples in " <<
-			std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count()
-			<< "ms." << std::endl;
+		if (!m_profiling_mode)
+		{
+			std::cout << "Loaded " << add_count << " triples in " <<
+				std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count()
+				<< "ms." << std::endl;
+		}
+		else
+		{
+			std::cout <<
+				std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count()
+				<< std::endl;
+		}
 	}
 
 	void operator()(const CountQuery& q)
@@ -190,13 +198,22 @@ public:
 
 		const auto end_time = std::chrono::system_clock::now();
 
-		std::cout << count << " results obtained in " <<
-			std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count()
-			<< "ms (= " <<
-			std::chrono::duration_cast<std::chrono::milliseconds>(planning_time - start_time).count()
-			<< "ms planning + " <<
-			std::chrono::duration_cast<std::chrono::milliseconds>(end_time - planning_time).count()
-			<< "ms evaluation)." << std::endl;
+		if (!m_profiling_mode)
+		{
+			std::cout << count << " results obtained in " <<
+				std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count()
+				<< "ms (= " <<
+				std::chrono::duration_cast<std::chrono::milliseconds>(planning_time - start_time).count()
+				<< "ms planning + " <<
+				std::chrono::duration_cast<std::chrono::milliseconds>(end_time - planning_time).count()
+				<< "ms evaluation)." << std::endl;
+		}
+		else
+		{
+			std::cout <<
+				std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count()
+				<< std::endl;
+		}
 	}
 
 	bool done() const
@@ -238,7 +255,7 @@ private:
 
 private:
 	bool m_done;
-	const bool m_log_plan_types;
+	const bool m_log_plan_types, m_profiling_mode;
 	Dictionary m_dict;
 	RDFIndex m_idx;
 };
@@ -249,6 +266,12 @@ void show_help()
 	std::cout << "-h : Print help. If using this option, no other options can be used." << std::endl;
 	std::cout << "-L : Show join plan selection types. Good for debugging performance "
 		"issues. If used, it must be appear before any -i or -f options." << std::endl;
+	std::cout << "-P : 'Profiling mode'. This means that the timings for each query "
+		"will only output an integer, the amount of time it took, with no extra text. "
+		"This is mutually exclusive with -L. "
+		"Also, it doesn't make much sense to use this with SELECT commands, or in interactive mode. "
+		"Errors will still be printed."
+		<< std::endl;
 	std::cout << "-i query : Execute query/queries." << std::endl;
 	std::cout << "-f filename : Execute query/queries from file." << std::endl;
 	std::cout << "Using either -i or -f will open the application in non-interactive "
@@ -267,10 +290,11 @@ int main(int argc, char* argv[])
 	}
 
 	const bool log_plan_types = (argc > 1 && std::string(argv[1]) == "-L");
-	const int cmd_start_idx = log_plan_types ? 2 : 1;
+	const bool profiling_mode = (argc > 1 && std::string(argv[1]) == "-P");
+	const int cmd_start_idx = (log_plan_types || profiling_mode) ? 2 : 1;
 	const int num_commands = (argc - cmd_start_idx) / 2;
 
-	QueryApplication app(log_plan_types);
+	QueryApplication app(log_plan_types, profiling_mode);
 
 	if (num_commands > 0)  // noninteractive mode
 	{

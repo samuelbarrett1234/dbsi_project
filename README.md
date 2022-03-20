@@ -27,6 +27,9 @@ For example, using noninteractive mode you can write:
 ```./dbsi_project -i "LOAD family_guy.ttl" -i "SELECT ?X ?Z WHERE { ?X <hasAge> ?Y . ?Z <hasAge> ?Y . }"```
 and it will print the answers and terminate.
 
+Additional options: using `-L`, it will print the selected join plan for each query (represented as a list of 'triple pattern types', in their evaluation order).
+Also, using `-P` is helpful for benchmarking experiments, as it alters the output to be more copy-paste-able into, say, a spreadsheet.
+
 ## Compilation
 
 This project uses a very basic `CMakeLists.txt`, so if you know CMake, you can compile this yourself how you like.
