@@ -10,6 +10,7 @@
 #include "dbsi_query.h"
 #include "dbsi_dictionary_utils.h"
 #include "dbsi_nlj.h"
+#include "dbsi_pattern_utils.h"
 
 
 using namespace dbsi;
@@ -242,8 +243,19 @@ private:
 
 			if (m_log_plan_types)
 			{
-				std::cout << "\t--> NLJ over patterns with types ";
-				for (const auto& pat : coded_pats)
+				// need to work out the conditional types
+				CodedVarMap cvm;
+				std::vector<CodedTriplePattern> cond_coded_pats;
+				for (const auto& cpat : coded_pats)
+				{
+					auto ccpat = substitute(cvm, cpat);
+					const bool ok = merge(cvm, extract_map(ccpat));
+					DBSI_CHECK_POSTCOND(ok);
+					cond_coded_pats.push_back(std::move(ccpat));
+				}
+
+				std::cout << "\t--> NLJ over patterns with (conditional) types ";
+				for (const auto& pat : cond_coded_pats)
 					std::cout << trip_pat_type_str(pattern_type(pat)) << ' ';
 				std::cout << std::endl;
 			}
