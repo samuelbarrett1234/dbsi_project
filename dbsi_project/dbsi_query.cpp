@@ -103,13 +103,13 @@ std::variant<BadQuery, SelectQuery, CountQuery, LoadQuery, QuitQuery, EmptyQuery
 
 		in >> delimiter;
 
-		if (delimiter != '}' && delimiter != '.')
-			return BadQuery(std::string("Bad where-clause triple-pattern delimiter: ") + delimiter);
-
 		if (!in.good() && delimiter != '}')
 			return BadQuery("Missing closing WHERE clause bracket.");
 		else if (delimiter != '}')
 			in >> std::ws;  // necessary to prevent interactive mode hanging after end of command
+
+		if (delimiter != '}' && delimiter != '.')
+			return BadQuery(std::string("Bad where-clause triple-pattern delimiter: ") + delimiter);
 	}
 
 	// if we only peeked at the closing bracket, make sure
