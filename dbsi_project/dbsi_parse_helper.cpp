@@ -67,9 +67,13 @@ std::optional<Term> parse_term(std::istream& in)
 
 	if (start_char == '?')
 	{
-		std::string var_name;
-		in >> var_name;
-		return Variable{ var_name };
+		std::vector<char> var_name;
+		var_name.push_back(in.get()  /* == '?' */);
+
+		while (std::isalnum(in.peek()))
+			var_name.push_back(in.get());
+
+		return Variable{ std::string(var_name.begin(), var_name.end()) };
 	}
 	else
 		return parse_resource(in);
