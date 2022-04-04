@@ -6,6 +6,8 @@ Hilary Term 2022
 
 ## Project Structure
 
+Please find the formal report in the root of this repository, `REPORT.pdf`.
+
 Here is a summary of what is in each file in the `dbsi_project/` folder:
 - `dbsi_project.cpp` : The main application entrypoint. This is a good file to start with as it references the high-level interfaces of many other areas of the project.
 - `dbsi_types.h`, `dbsi_types.cpp` : definitions of types used throughout the project. Makes extensive use of C++17's `std::variant`.
