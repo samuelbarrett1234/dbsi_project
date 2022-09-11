@@ -75,7 +75,7 @@ struct GeneralTriple
 	{
 		return sub == other.sub && pred == other.pred && obj == other.obj;
 	}
-	inline bool operator != (const Literal& other) const { return !(*this == other); }
+	inline bool operator != (const GeneralTriple<ResT>& other) const { return !(*this == other); }
 };
 
 
@@ -84,11 +84,11 @@ struct GeneralTriplePattern
 {
 	GeneralTerm<ResT> sub, pred, obj;
 
-	inline bool operator == (const GeneralTriple<ResT>& other) const
+	inline bool operator == (const GeneralTriplePattern<ResT>& other) const
 	{
 		return sub == other.sub && pred == other.pred && obj == other.obj;
 	}
-	inline bool operator != (const Literal& other) const { return !(*this == other); }
+	inline bool operator != (const GeneralTriplePattern<ResT>& other) const { return !(*this == other); }
 };
 
 
