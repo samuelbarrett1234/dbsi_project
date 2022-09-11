@@ -1,12 +1,9 @@
 # Database Systems Implementation Project
 
-Candidate Number 1032514
+This project implements an in-memory RDF data store, and implements a subset of the SPARQL language.
+It was written for my masters degree in Mathematics and Computer Science at Oxford University, for the Database Systems Implementation course in Hilary Term 2022.
 
-Hilary Term 2022
-
-## Project Structure
-
-Please find the formal report in the root of this repository, `REPORT.pdf`.
+## Repository Structure
 
 Here is a summary of what is in each file in the `dbsi_project/` folder:
 - `dbsi_project.cpp` : The main application entrypoint. This is a good file to start with as it references the high-level interfaces of many other areas of the project.
@@ -44,8 +41,3 @@ Both of these should work without errors.
 The executable is then available in the new folder `dbsi_project`.
 
 **Please note that this project requires C++17. CMake should already detect this.**
-Also, note that `make` might issue warnings, but this is OK.
-
-### Compilers Tested
-
-This code compiles on the department lab machines (using GCC 11.2.1 20220127 (Red Hat 11.2.1-9)), and on Microsoft Visual Studio.
