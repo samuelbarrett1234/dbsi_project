@@ -1,0 +1,16 @@
+SELECT ?X ?Z WHERE { ?X <hasAge> ?Y . ?Z <hasAge> ?Y . }
+SELECT ?X ?Y WHERE { ?X <hasSon> ?Y }
+COUNT ?X ?Y WHERE { ?X <hasSon> ?Y }
+SELECT ?X WHERE { ?X <hasSon> ?Y }
+SELECT ?Y WHERE { <Peter> <hasSon> ?Y . }
+SELECT ?X WHERE { ?X <hasAge> "10" . }
+SELECT ?X WHERE { ?X <hasAge> "12" . }
+SELECT ?X ?Y ?Z WHERE { ?X <loves> ?Y . ?Y <loves> ?Z }
+SELECT ?X ?Y WHERE { ?X <loves> ?X . ?X <loves> ?Y }
+SELECT ?X ?Y ?Z WHERE { ?X ?Y ?Z . ?Z <hasAge> "42" . }
+SELECT ?X ?Y ?Z WHERE {
+	?X <hasPet> ?Y . ?Y <loves> ?Z . ?X <marriedTo> ?Z .
+}
+SELECT ?X ?Y ?Z WHERE {
+	?X <hasPet> ?Y . ?Y <hasDaughter> ?Z . ?X <marriedTo> ?Z .
+}

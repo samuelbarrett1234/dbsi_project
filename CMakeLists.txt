@@ -21,4 +21,5 @@ FIND_PACKAGE(Boost 1.75.0)
 
 add_subdirectory("lib_dbsi_project")
 add_subdirectory("dbsi_project")
-add_subdirectory("dbsi_project_tests")
+add_subdirectory("dbsi_project_unit_tests")
+add_subdirectory("dbsi_project_integration_tests")
