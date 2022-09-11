@@ -1,9 +1,3 @@
-﻿cmake_minimum_required (VERSION 3.21)
-
-
-# Add source to this project's executable.
-add_executable (dbsi_project
-    "dbsi_project.cpp" "dbsi_dictionary.cpp" "dbsi_dictionary_utils.cpp" "dbsi_turtle.cpp"
-    "dbsi_rdf_index.cpp" "dbsi_nlj.cpp" "dbsi_query.cpp" "dbsi_parse_helper.cpp"
-    "dbsi_types.cpp"
-)
+add_executable(dbsi_project "main.cpp")
+target_include_directories(dbsi_project PUBLIC "${PROJECT_SOURCE_DIR}/lib_dbsi_project")
+target_link_libraries(dbsi_project PUBLIC lib_dbsi_project)

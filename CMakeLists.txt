@@ -1,7 +1,7 @@
 ﻿cmake_minimum_required (VERSION 3.21)
 
 
-project ("dbsi_project" VERSION 1.1 LANGUAGES CXX)
+project("dbsi_project" VERSION 2.0.0 LANGUAGES CXX)
 
 
 include(CTest)
@@ -19,6 +19,6 @@ add_definitions( -DBOOST_ALL_NO_LIB )
 FIND_PACKAGE(Boost 1.75.0)
 
 
-# Include sub-projects.
-add_subdirectory ("dbsi_project")
-add_subdirectory ("dbsi_project_tests")
+add_subdirectory("lib_dbsi_project")
+add_subdirectory("dbsi_project")
+add_subdirectory("dbsi_project_tests")
