@@ -1,65 +1,53 @@
 ----------
-?X ?Z
-<Brian> <Brian>
-<Peter> <Peter>
-<Peter> <Lois>
-<Lois> <Peter>
-<Lois> <Lois>
+?X	?Z
+<Brian>	<Brian>
+<Lois>	<Lois>
+<Lois>	<Peter>
+<Peter>	<Lois>
+<Peter>	<Peter>
 ----------
-
 ----------
-?X ?Y
-<Peter> <Stewie>
-<Peter> <Chris>
+?X	?Y
+<Peter>	<Chris>
+<Peter>	<Stewie>
 ----------
-
-2 results
-
 ----------
 ?X
 <Peter>
 <Peter>
 ----------
-
 ----------
 ?Y
 <Chris>
 <Stewie>
 ----------
-
 ----------
 ?X
 <Brian>
 ----------
-
 ----------
 ?X
 ----------
-
 ----------
-?X ?Y ?Z
-<Stewie> <Stewie> <Stewie>
-<Stewie> <Stewie> <Brian>
-<Stewie> <Brian> <Lois>
+?X	?Y	?Z
+<Stewie>	<Brian>	<Lois>
+<Stewie>	<Stewie>	<Brian>
+<Stewie>	<Stewie>	<Stewie>
 ----------
-
 ----------
-?X ?Y
-<Stewie> <Stewie>
-<Stewie> <Brian>
+?X	?Y
+<Stewie>	<Brian>
+<Stewie>	<Stewie>
 ----------
-
 ----------
-?X ?Y ?Z
-<Peter> <marriedTo> <Lois>
-<Brian> <loves> <Lois>
+?X	?Y	?Z
+<Peter>	<marriedTo>	<Lois>
+<Brian>	<loves>	<Lois>
 ----------
-
 ----------
-?X ?Y ?Z
-<Peter> <Brian> <Lois>
+?X	?Y	?Z
+<Peter>	<Brian>	<Lois>
 ----------
-
 ----------
-?X ?Y ?Z
+?X	?Y	?Z
 ----------

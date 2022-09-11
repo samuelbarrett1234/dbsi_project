@@ -123,13 +123,7 @@ public:
 
 		const auto end_time = std::chrono::system_clock::now();
 
-		if (!m_profiling_mode)
-		{
-			std::cout << "Loaded " << add_count << " triples in " <<
-				std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count()
-				<< "ms." << std::endl;
-		}
-		else
+		if (m_profiling_mode)
 		{
 			std::cout <<
 				std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count()
@@ -155,8 +149,19 @@ public:
 		if (print_mode)
 		{
 			std::cout << "----------" << std::endl;
+			bool first = true;
 			for (const auto& v : q.projection)
-				std::cout << v.name << '\t';
+			{
+				if (first)
+				{
+					first = false;
+				}
+				else
+				{
+					std::cout << '\t';
+				}
+				std::cout << v.name;
+			}
 			std::cout << std::endl;
 		}
 
@@ -169,21 +174,31 @@ public:
 
 			if (print_mode)
 			{
+				bool first = true;
 				// print columns in this row
 				for (size_t i = 0; i < q.projection.size(); ++i)
 				{
+					if (first)
+					{
+						first = false;
+					}
+					else
+					{
+						std::cout << '\t';
+					}
+
 					auto vm_iter = vm.find(q.projection[i]);
 					if (vm_iter != vm.end())
 					{
 						std::cout << std::visit(DbsiToStringVisitor(),
-							vm_iter->second) << '\t';
+							vm_iter->second);
 					}
 					else
 					{
 						// in this case the user has mentioned a variable
 						// in the projection which is not present in the
 						// patterns
-						std::cout << q.projection[i].name << '\t';
+						std::cout << q.projection[i].name;
 					}
 				}
 				std::cout << std::endl;
@@ -199,17 +214,7 @@ public:
 
 		const auto end_time = std::chrono::system_clock::now();
 
-		if (!m_profiling_mode)
-		{
-			std::cout << count << " results obtained in " <<
-				std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count()
-				<< "ms (= " <<
-				std::chrono::duration_cast<std::chrono::milliseconds>(planning_time - start_time).count()
-				<< "ms planning + " <<
-				std::chrono::duration_cast<std::chrono::milliseconds>(end_time - planning_time).count()
-				<< "ms evaluation)." << std::endl;
-		}
-		else
+		if (m_profiling_mode)
 		{
 			std::cout <<
 				std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count()
