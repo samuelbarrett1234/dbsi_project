@@ -47,6 +47,9 @@ struct QuitQuery {};
 struct EmptyQuery {};
 
 
+using AnyQuery = std::variant<BadQuery, SelectQuery, CountQuery, LoadQuery, QuitQuery, EmptyQuery>;
+
+
 /*
 * Read a single query from the given input string, which
 * may contain zero, one, or multiple queries. In the case
@@ -55,7 +58,7 @@ struct EmptyQuery {};
 * In all other cases, the foremost query in the string is
 * read and returned.
 */
-std::variant<BadQuery, SelectQuery, CountQuery, LoadQuery, QuitQuery, EmptyQuery> parse_query(std::istream& in);
+AnyQuery parse_query(std::istream& in);
 
 
 }  // namespace dbsi

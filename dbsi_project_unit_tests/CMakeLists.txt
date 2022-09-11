@@ -1,6 +1,6 @@
 # Add source to this project's executable.
 add_executable (dbsi_project_unit_tests
-    "main.cpp"
+    "main.cpp" "dbsi_query_tests.cpp"
 )
 target_include_directories(dbsi_project_unit_tests
     PUBLIC "${PROJECT_SOURCE_DIR}/lib_dbsi_project"
